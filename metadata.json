@@ -1,0 +1,6 @@
+{
+  "name": "CirugíaMed - Gestión Quirúrgica y Finanzas",
+  "description": "Administrador para cirujanos: historia clínica, registro de cirugías con dictado por voz, reportes para WhatsApp/impresión y dashboard de finanzas por operación en USD y moneda local.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+}
+
+/* Custom Print Rules for Surgical Reports */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printable-medical-report,
+  #printable-medical-report * {
+    visibility: visible;
+  }
+  
+  /* Override modal fixed positioning for printing to allow multi-page */
+  .fixed {
+    position: static !important;
+  }
+  .overflow-y-auto {
+    overflow: visible !important;
+  }
+  
+  #printable-medical-report {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background: white !important;
+    color: black !important;
+    border: none !important;
+    box-shadow: none !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

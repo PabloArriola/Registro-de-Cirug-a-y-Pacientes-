@@ -1,0 +1,130 @@
+{
+  "entities": {
+    "MedicalTeam": {
+      "title": "MedicalTeam",
+      "description": "Information about the medical team involved.",
+      "type": "object",
+      "properties": {
+        "ayudante": { "type": "string" },
+        "anestesista": { "type": "string" },
+        "instrumentadora": { "type": "string" },
+        "otros": { "type": "string" }
+      }
+    },
+    "AttachedMedia": {
+      "title": "AttachedMedia",
+      "description": "A media file attached to a patient or surgery.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "url": { "type": "string" },
+        "titulo": { "type": "string" },
+        "categoria": {
+          "type": "string",
+          "enum": ["estudio", "intraoperatorio", "post-op", "biopsia", "otro"]
+        },
+        "fecha": { "type": "string" }
+      },
+      "required": ["id", "url", "titulo", "categoria", "fecha"]
+    },
+    "SurgeryFinance": {
+      "title": "SurgeryFinance",
+      "description": "Financial information for a surgery.",
+      "type": "object",
+      "properties": {
+        "moneda": { "type": "string", "enum": ["USD", "LOCAL"] },
+        "montoBruto": { "type": "number" },
+        "pagoEquipo": { "type": "number" },
+        "gananciaNeta": { "type": "number" },
+        "metodoPago": { "type": "string", "enum": ["Particular", "Obra Social", "Prepaga", "Seguro"] },
+        "entidadPago": { "type": "string" },
+        "estadoPago": { "type": "string", "enum": ["Pendiente", "Cobrado"] },
+        "fechaCobroReal": { "type": "string" },
+        "estadoPagoEquipo": { "type": "string", "enum": ["Pendiente", "Pagado"] },
+        "fechaPagoEquipo": { "type": "string" },
+        "notasFinancieras": { "type": "string", "maxLength": 1000 }
+      },
+      "required": ["moneda", "montoBruto", "pagoEquipo", "gananciaNeta", "metodoPago", "estadoPago", "estadoPagoEquipo"]
+    },
+    "Surgery": {
+      "title": "Surgery",
+      "description": "A surgery record.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "pacienteId": { "type": "string" },
+        "pacienteNombre": { "type": "string" },
+        "pacienteDni": { "type": "string" },
+        "tipoCirugia": { "type": "string" },
+        "fechaCirugia": { "type": "string" },
+        "lugar": { "type": "string" },
+        "estado": { "type": "string", "enum": ["Programada", "Realizada", "Post-Op", "Suspendida"] },
+        "equipoMedico": { "$ref": "#/entities/MedicalTeam" },
+        "protocoloQuirurgico": { "type": "string" },
+        "fotosPostOp": { "type": "array", "items": { "$ref": "#/entities/AttachedMedia" } },
+        "diasControlAlerta": { "type": "number" },
+        "fechaControlAlerta": { "type": "string" },
+        "finanzas": { "$ref": "#/entities/SurgeryFinance" },
+        "creadoEl": { "type": "string" }
+      },
+      "required": ["id", "userId", "pacienteId", "pacienteNombre", "tipoCirugia", "fechaCirugia", "lugar", "estado", "creadoEl"]
+    },
+    "Patient": {
+      "title": "Patient",
+      "description": "A patient record.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "dni": { "type": "string" },
+        "nombreCompleto": { "type": "string" },
+        "telefono": { "type": "string" },
+        "email": { "type": "string" },
+        "edad": { "type": "number" },
+        "obraSocial": { "type": "string" },
+        "numeroAfiliado": { "type": "string" },
+        "antecedentesMedicos": { "type": "string" },
+        "alergias": { "type": "string" },
+        "medicacionHabitual": { "type": "string" },
+        "historiaClinicaResumen": { "type": "string" },
+        "fotosEstudios": { "type": "array", "items": { "$ref": "#/entities/AttachedMedia" } },
+        "fechaCreacion": { "type": "string" }
+      },
+      "required": ["id", "userId", "nombreCompleto", "obraSocial", "fechaCreacion"]
+    },
+    "DoctorProfile": {
+      "title": "DoctorProfile",
+      "description": "The user's doctor profile.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "nombre": { "type": "string" },
+        "especialidad": { "type": "string" },
+        "matricula": { "type": "string" },
+        "clinicaHabitual": { "type": "string" },
+        "monedaLocalNombre": { "type": "string" },
+        "monedaLocalSimbolo": { "type": "string" },
+        "telefonoContacto": { "type": "string" },
+        "emailContacto": { "type": "string" },
+        "biometriaHabilitada": { "type": "boolean" },
+        "pinSeguridad": { "type": "string" }
+      },
+      "required": ["userId", "nombre"]
+    }
+  },
+  "firestore": {
+    "surgeries/{surgeryId}": {
+      "schema": "#/entities/Surgery",
+      "description": "Stores surgery records belonging to a user."
+    },
+    "patients/{patientId}": {
+      "schema": "#/entities/Patient",
+      "description": "Stores patient records belonging to a user."
+    },
+    "profiles/{userId}": {
+      "schema": "#/entities/DoctorProfile",
+      "description": "Stores the user's doctor profile."
+    }
+  }
+}
