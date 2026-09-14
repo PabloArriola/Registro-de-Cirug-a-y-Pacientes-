@@ -1,12 +1,8 @@
-{
-  "projectId": "pioneering-correlate-qf6jr",
-  "appId": "1:390908286386:web:99b91d210cc42708e5c0ab",
-  "apiKey": "AIzaSyCQ3ESXsPtFtsyZV9p0PK9T7Xr8SqU-xiM",
-  "authDomain": "pioneering-correlate-qf6jr.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-cirugamedgestinq-fbb1446a-97b8-4eaa-b158-6bdc23fb9369",
-  "storageBucket": "pioneering-correlate-qf6jr.firebasestorage.app",
-  "messagingSenderId": "390908286386",
-  "measurementId": "",
-  "oAuthClientId": "390908286386-pv4ktl62fktbspk0uk174corrolktcmg.apps.googleusercontent.com",
-  "recaptchaSiteKey": ""
+﻿{
+  "apiKey": "AIzaSyCCOHV_Nxcc4I3ogeFozC8DnxwiJtj4N54",
+  "authDomain": "cirugiamed-gestion.firebaseapp.com",
+  "projectId": "cirugiamed-gestion",
+  "storageBucket": "cirugiamed-gestion.firebasestorage.app",
+  "messagingSenderId": "850553991270",
+  "appId": "1:850553991270:web:2afbdfb84bfd6ae9c43da7"
 }

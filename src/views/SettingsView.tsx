@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   User,
   Shield,
@@ -11,16 +11,12 @@ import {
   LogOut,
   Building,
   Phone,
-  Mail,
-  AlertTriangle,
-  ExternalLink,
-  Sparkles
+  Mail
 } from 'lucide-react';
 import { DoctorProfile } from '../types';
 import { exportAppDataAsJson, importAppDataFromJson, resetToMockData } from '../lib/storage';
 import { logout } from '../lib/firebase';
-import { checkBiometricSupport, enrollBiometric, isBiometricEnrolled, removeEnrolledBiometric } from '../lib/webauthn';
-import { isInIframe, openInStandaloneWindow } from '../lib/speechRecognition';
+import { isBiometricAvailable, registerBiometric, hasSavedBiometric } from '../lib/webauthn';
 
 interface SettingsViewProps {
   profile: DoctorProfile;
@@ -35,62 +31,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 }) => {
   const [formData, setFormData] = useState<DoctorProfile>(profile);
   const [savedSuccess, setSavedSuccess] = useState(false);
-  const [biometricSupport, setBiometricSupport] = useState<{ checked: boolean; hasSensor: boolean; reason?: string }>({
-    checked: false,
-    hasSensor: false,
-  });
-  const [enrolled, setEnrolled] = useState(false);
-  const [testingBio, setTestingBio] = useState(false);
-  const [bioFeedback, setBioFeedback] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
+  const [biometricFeedback, setBiometricFeedback] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
+  const [isRegisteringBio, setIsRegisteringBio] = useState(false);
 
-  useEffect(() => {
-    checkBiometricSupport().then(res => {
-      setBiometricSupport({ checked: true, hasSensor: res.hasPlatformSensor, reason: res.reason });
-    });
-    setEnrolled(isBiometricEnrolled());
-  }, []);
-
-  const handleChange = (field: keyof DoctorProfile, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleTestOrEnrollBiometric = async () => {
-    setTestingBio(true);
-    setBioFeedback(null);
+  const handleRegisterBiometric = async () => {
+    setIsRegisteringBio(true);
+    setBiometricFeedback({ type: 'info', message: 'Coloca tu dedo en el sensor o autoriza en tu dispositivo...' });
     try {
-      const result = await enrollBiometric(formData.emailContacto, formData.nombre);
-      setTestingBio(false);
-      if (result.success) {
-        setEnrolled(true);
-        setBioFeedback({
-          type: 'success',
-          message: '¡Sensor de huella / Face ID vinculado y verificado con éxito en este equipo!',
-        });
-        if (!formData.biometriaHabilitada) {
-          handleChange('biometriaHabilitada', true);
-        }
-      } else {
-        setBioFeedback({
-          type: 'error',
-          message: result.error || 'No se pudo registrar la huella.',
-        });
+      const ok = await registerBiometric(formData.matricula || 'doctor', formData.nombre || 'Cirujano');
+      if (ok) {
+        setBiometricFeedback({ type: 'success', message: '¡Huella digital / FaceID vinculada con éxito en este dispositivo!' });
       }
     } catch (err: any) {
-      setTestingBio(false);
-      setBioFeedback({
-        type: 'error',
-        message: err?.message || 'Error al conectar con el sensor biométrico.',
-      });
+      setBiometricFeedback({ type: 'error', message: err.message || 'Error al configurar huella.' });
+    } finally {
+      setIsRegisteringBio(false);
     }
   };
 
-  const handleRemoveBiometric = () => {
-    removeEnrolledBiometric();
-    setEnrolled(false);
-    setBioFeedback({
-      type: 'info',
-      message: 'Vínculo biométrico restablecido en este navegador.',
-    });
+  const handleChange = (field: keyof DoctorProfile, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -249,32 +209,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
         {/* Security & Biometrics Card */}
         <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-              <Fingerprint className="w-4 h-4 text-teal-600" />
-              Seguridad y Acceso Biométrico
-            </h2>
-            {biometricSupport.checked && (
-              <span
-                className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                  biometricSupport.hasSensor
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                    : 'bg-amber-50 text-amber-700 border-amber-200'
-                }`}
-              >
-                {biometricSupport.hasSensor ? '● Sensor Biométrico Compatible' : '○ Sin Sensor Físico Detectado'}
-              </span>
-            )}
-          </div>
+          <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+            <Fingerprint className="w-4 h-4 text-teal-600" />
+            Seguridad y Acceso Biométrico
+          </h2>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200">
               <div>
                 <span className="font-bold text-xs text-slate-900 block">
                   Exigir FaceID / Huella o PIN al iniciar
                 </span>
                 <span className="text-[11px] text-slate-500">
-                  Bloquea la aplicación automáticamente para proteger los datos médicos
+                  Protege los datos clínicos confidenciales de tus pacientes
                 </span>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
@@ -288,108 +235,42 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </label>
             </div>
 
-            {/* Biometric Hardware Enrollment / Test Panel */}
-            <div className="p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200 space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div>
-                  <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-teal-600" />
-                    Detector de Huella / Face ID del Dispositivo
-                  </span>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    {enrolled
-                      ? '✓ Este navegador ya tiene una credencial biométrica vinculada.'
-                      : 'Vincula la huella digital registrada en tu celular o lector de PC.'}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  {enrolled && (
-                    <button
-                      type="button"
-                      onClick={handleRemoveBiometric}
-                      className="px-2.5 py-1.5 rounded-xl text-[11px] font-semibold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-100 transition"
-                    >
-                      Desvincular
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={handleTestOrEnrollBiometric}
-                    disabled={testingBio}
-                    className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white shadow-sm flex items-center space-x-1.5 transition disabled:opacity-50"
-                  >
-                    <Fingerprint className="w-3.5 h-3.5" />
-                    <span>{testingBio ? 'Esperando sensor...' : enrolled ? 'Probar / Actualizar Huella' : 'Vincular Huella'}</span>
-                  </button>
-                </div>
-              </div>
-
-              {bioFeedback && (
-                <div
-                  className={`p-2.5 rounded-xl text-xs flex items-start space-x-2 border ${
-                    bioFeedback.type === 'success'
-                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                      : bioFeedback.type === 'error'
-                      ? 'bg-rose-50 text-rose-800 border-rose-200'
-                      : 'bg-blue-50 text-blue-800 border-blue-200'
-                  }`}
-                >
-                  {bioFeedback.type === 'success' ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  ) : (
-                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                  )}
-                  <span>{bioFeedback.message}</span>
-                </div>
-              )}
-
-              {/* Informative instructions for how biometric is set up */}
-              <div className="p-3 bg-white rounded-xl border border-slate-200/80 text-[11px] text-slate-600 space-y-1.5">
-                <p className="font-semibold text-slate-800">💡 ¿Cómo funciona el sensor de huella?</p>
-                <p>
-                  • <strong>En Android:</strong> Usa el lector de huellas de tu teléfono (debes tener al menos una huella registrada en <em>Ajustes &gt; Seguridad / Bloqueo &gt; Huella dactilar</em>).
-                </p>
-                <p>
-                  • <strong>En iPhone / Mac / iPad:</strong> Activa Touch ID o Face ID nativo a través de Safari o Chrome.
-                </p>
-                <p>
-                  • <strong>En Windows:</strong> Utiliza el sensor de huella o cámara de <em>Windows Hello</em>.
-                </p>
-                {isInIframe() && (
-                  <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-amber-700 font-medium">
-                    <span>⚠️ Estás en la vista previa: Los iframes de desarrollo bloquean el acceso al hardware.</span>
-                    <button
-                      type="button"
-                      onClick={openInStandaloneWindow}
-                      className="text-teal-600 hover:text-teal-700 font-bold underline flex items-center gap-1 shrink-0"
-                    >
-                      <span>Abrir en pestaña nueva</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                PIN de Seguridad Alternativo (4 dígitos)
+                PIN de Seguridad (4 dígitos)
               </label>
-              <div className="flex items-center space-x-2">
-                <input
-                  id="input-security-pin"
-                  type="password"
-                  maxLength={4}
-                  value={formData.pinSeguridad}
-                  onChange={(e) => handleChange('pinSeguridad', e.target.value.replace(/[^0-9]/g, ''))}
-                  className="w-32 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-center text-sm font-mono tracking-widest font-black text-slate-900 focus:bg-white focus:ring-2 focus:ring-teal-500 focus:outline-none"
-                />
-                <span className="text-[11px] text-slate-500">
-                  Se solicitará como respaldo si el sensor de huella no está disponible. (Por defecto: 1234)
-                </span>
-              </div>
+              <input
+                id="input-security-pin"
+                type="password"
+                maxLength={4}
+                value={formData.pinSeguridad}
+                onChange={(e) => handleChange('pinSeguridad', e.target.value.replace(/[^0-9]/g, ''))}
+                className="w-32 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-center text-sm font-mono tracking-widest font-black text-slate-900 focus:bg-white focus:ring-2 focus:ring-teal-500 focus:outline-none"
+              />
+              <span className="text-[10px] text-slate-400 ml-2">Por defecto: 1234</span>
             </div>
+
+            {formData.biometriaHabilitada && (
+              <div className="pt-2 border-t border-slate-100 space-y-2">
+                <button
+                  type="button"
+                  onClick={handleRegisterBiometric}
+                  disabled={isRegisteringBio}
+                  className="w-full flex items-center justify-center space-x-2 py-2.5 px-3 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-bold border border-teal-200 transition disabled:opacity-50 active:scale-98"
+                >
+                  <Fingerprint className="w-4 h-4 text-teal-600" />
+                  <span>{isRegisteringBio ? 'Esperando al sensor...' : 'Vincular / Probar Huella en este equipo'}</span>
+                </button>
+                {biometricFeedback && (
+                  <p className={`text-[11px] font-medium text-center ${
+                    biometricFeedback.type === 'success' ? 'text-emerald-600' :
+                    biometricFeedback.type === 'error' ? 'text-rose-600' : 'text-slate-600'
+                  }`}>
+                    {biometricFeedback.message}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

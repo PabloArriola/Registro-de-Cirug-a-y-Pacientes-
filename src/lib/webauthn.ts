@@ -1,11 +1,6 @@
-/**
- * WebAuthn (Platform Authenticator) Service
- * Enables real fingerprint (Touch ID / Android Biometrics), Face ID,
- * and Windows Hello hardware sensor authentication in the browser.
- */
+﻿// WebAuthn Biometric Authentication Helper (FaceID / TouchID / Windows Hello / Android Fingerprint)
 
-const STORAGE_CRED_ID_KEY = 'cirugiamed_biometric_cred_id';
-const STORAGE_USER_ID_KEY = 'cirugiamed_biometric_user_id';
+const STORAGE_KEY = 'cirugiamed_webauthn_credential_id';
 
 function bufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
@@ -25,167 +20,99 @@ function base64ToBuffer(base64: string): ArrayBuffer {
   return bytes.buffer;
 }
 
-/**
- * Check if the browser and device have hardware biometric support (Touch ID, Fingerprint, Face ID)
- */
-export async function checkBiometricSupport(): Promise<{
-  supported: boolean;
-  hasPlatformSensor: boolean;
-  reason?: string;
-}> {
-  if (typeof window === 'undefined' || !window.PublicKeyCredential) {
-    return {
-      supported: false,
-      hasPlatformSensor: false,
-      reason: 'El navegador actual no soporta el estándar WebAuthn para biometría.',
-    };
-  }
-
-  try {
-    if (typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable !== 'function') {
-      return {
-        supported: true,
-        hasPlatformSensor: false,
-        reason: 'No se puede comprobar la presencia de sensor biométrico local.',
-      };
-    }
-
-    const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-    return {
-      supported: true,
-      hasPlatformSensor: available,
-      reason: available
-        ? undefined
-        : 'Este dispositivo no tiene un lector de huellas o Face ID activo y configurado en el sistema.',
-    };
-  } catch (err: any) {
-    return {
-      supported: false,
-      hasPlatformSensor: false,
-      reason: err?.message || 'Error al comprobar sensor biométrico.',
-    };
-  }
-}
-
-/**
- * Check if a biometric credential has already been enrolled on this device
- */
-export function isBiometricEnrolled(): boolean {
+export async function isBiometricAvailable(): Promise<boolean> {
   if (typeof window === 'undefined') return false;
-  return !!localStorage.getItem(STORAGE_CRED_ID_KEY);
+  if (!window.PublicKeyCredential) return false;
+  try {
+    return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+  } catch (e) {
+    return false;
+  }
 }
 
-/**
- * Remove enrolled biometric from this browser
- */
-export function removeEnrolledBiometric(): void {
-  if (typeof window === 'undefined') return;
-  localStorage.removeItem(STORAGE_CRED_ID_KEY);
-  localStorage.removeItem(STORAGE_USER_ID_KEY);
+export function hasSavedBiometric(): boolean {
+  if (typeof window === 'undefined') return false;
+  return Boolean(localStorage.getItem(STORAGE_KEY));
 }
 
-/**
- * Register a new biometric credential with the device's native sensor
- */
-export async function enrollBiometric(
-  userEmail: string,
-  userDisplayName: string
-): Promise<{ success: boolean; error?: string }> {
-  if (typeof window === 'undefined' || !window.PublicKeyCredential) {
-    return { success: false, error: 'WebAuthn no está soportado en este navegador.' };
+export async function registerBiometric(
+  userId: string = 'doctor',
+  userName: string = 'Cirujano'
+): Promise<boolean> {
+  if (!window.PublicKeyCredential) {
+    throw new Error('Tu navegador no soporta autenticación biométrica.');
   }
 
+  const hostname = window.location.hostname;
+  const challenge = window.crypto.getRandomValues(new Uint8Array(32));
+  const userIdBuffer = new TextEncoder().encode(userId || 'doctor');
+
   try {
-    const challenge = new Uint8Array(32);
-    window.crypto.getRandomValues(challenge);
-
-    const userIdBytes = new Uint8Array(16);
-    window.crypto.getRandomValues(userIdBytes);
-
     const credential = (await navigator.credentials.create({
       publicKey: {
         challenge,
         rp: {
           name: 'CirugíaMed',
+          id: hostname,
         },
         user: {
-          id: userIdBytes,
-          name: userEmail || 'medico@cirugiamed.local',
-          displayName: userDisplayName || 'Médico Cirujano',
+          id: userIdBuffer,
+          name: `${userId}@cirugiamed.app`,
+          displayName: userName || 'Cirujano',
         },
         pubKeyCredParams: [
-          { alg: -7, type: 'public-key' },  // ES256 (compatible with Touch ID, Android, FaceID)
-          { alg: -257, type: 'public-key' }, // RS256 (Windows Hello)
+          { alg: -7, type: 'public-key' },  // ES256
+          { alg: -257, type: 'public-key' }, // RS256
         ],
         authenticatorSelection: {
           authenticatorAttachment: 'platform',
           userVerification: 'required',
-          requireResidentKey: false,
+          residentKey: 'preferred',
         },
         timeout: 60000,
       },
     })) as PublicKeyCredential | null;
 
-    if (!credential) {
-      return { success: false, error: 'No se recibió respuesta del lector de huellas.' };
+    if (credential && credential.rawId) {
+      const credIdBase64 = bufferToBase64(credential.rawId);
+      localStorage.setItem(STORAGE_KEY, credIdBase64);
+      return true;
     }
-
-    const credIdBase64 = bufferToBase64(credential.rawId);
-    localStorage.setItem(STORAGE_CRED_ID_KEY, credIdBase64);
-    localStorage.setItem(STORAGE_USER_ID_KEY, userEmail || 'medico');
-
-    return { success: true };
-  } catch (err: any) {
-    console.warn('Error en registro biométrico:', err);
-    if (err.name === 'NotAllowedError') {
-      return {
-        success: false,
-        error: 'El sensor biométrico fue cancelado o no tiene permisos en esta ventana. Si estás en vista previa de desarrollo, abre la app en una pestaña nueva.',
-      };
+    return false;
+  } catch (error: any) {
+    console.error('Error registrando biometría:', error);
+    if (error.name === 'NotAllowedError') {
+      throw new Error('Registro cancelado por el usuario.');
     }
-    if (err.name === 'SecurityError') {
-      return {
-        success: false,
-        error: 'El navegador bloqueó la biometría por motivos de seguridad o por ejecutarse dentro de un marco (iframe). Abre la app en una pestaña nueva.',
-      };
-    }
-    return {
-      success: false,
-      error: err.message || 'Error al conectar con el sensor biométrico.',
-    };
+    throw new Error(error.message || 'No se pudo configurar la huella digital.');
   }
 }
 
-/**
- * Verify identity using the device's native fingerprint/FaceID sensor
- */
-export async function authenticateWithBiometrics(
-  userEmail?: string,
-  userDisplayName?: string
-): Promise<{ success: boolean; error?: string }> {
-  if (typeof window === 'undefined' || !window.PublicKeyCredential) {
-    return { success: false, error: 'WebAuthn no está soportado en este navegador.' };
+export async function verifyBiometric(
+  userId: string = 'doctor',
+  userName: string = 'Cirujano'
+): Promise<boolean> {
+  if (!window.PublicKeyCredential) {
+    throw new Error('Tu navegador no soporta autenticación biométrica.');
   }
 
-  const storedCredId = localStorage.getItem(STORAGE_CRED_ID_KEY);
+  const savedCredId = localStorage.getItem(STORAGE_KEY);
+  const hostname = window.location.hostname;
+  const challenge = window.crypto.getRandomValues(new Uint8Array(32));
 
-  // If this device hasn't been enrolled yet, prompt enrollment first (this will open the native fingerprint sensor!)
-  if (!storedCredId) {
-    return await enrollBiometric(userEmail || 'medico@cirugiamed.local', userDisplayName || 'Médico Cirujano');
+  // If no credential is saved yet, register one first on this device
+  if (!savedCredId) {
+    return await registerBiometric(userId, userName);
   }
 
   try {
-    const challenge = new Uint8Array(32);
-    window.crypto.getRandomValues(challenge);
-
-    const rawIdBuffer = base64ToBuffer(storedCredId);
-
     const assertion = await navigator.credentials.get({
       publicKey: {
         challenge,
+        rpId: hostname,
         allowCredentials: [
           {
-            id: rawIdBuffer,
+            id: base64ToBuffer(savedCredId),
             type: 'public-key',
             transports: ['internal'],
           },
@@ -195,32 +122,17 @@ export async function authenticateWithBiometrics(
       },
     });
 
-    if (assertion) {
-      return { success: true };
+    return Boolean(assertion);
+  } catch (error: any) {
+    console.error('Error verificando biometría:', error);
+    // If the saved credential is no longer valid on this device, try re-registering
+    if (error.name === 'InvalidStateError' || error.name === 'NotFoundError') {
+      localStorage.removeItem(STORAGE_KEY);
+      return await registerBiometric(userId, userName);
     }
-    return { success: false, error: 'No se completó la verificación biométrica.' };
-  } catch (err: any) {
-    console.warn('Error en autenticación biométrica:', err);
-    if (err.name === 'NotAllowedError') {
-      return {
-        success: false,
-        error: 'Verificación biométrica cancelada o sin permisos. Puedes intentar de nuevo o ingresar tu PIN.',
-      };
+    if (error.name === 'NotAllowedError') {
+      throw new Error('Operación cancelada. Puedes ingresar con tu PIN.');
     }
-    if (err.name === 'SecurityError') {
-      return {
-        success: false,
-        error: 'El navegador restringió el sensor dentro del iframe. Abre la app en una pestaña nueva o usa tu PIN.',
-      };
-    }
-    // If the stored credential is no longer valid, re-enroll
-    if (err.name === 'InvalidStateError' || err.message?.includes('not found')) {
-      localStorage.removeItem(STORAGE_CRED_ID_KEY);
-      return await enrollBiometric(userEmail || 'medico@cirugiamed.local', userDisplayName || 'Médico Cirujano');
-    }
-    return {
-      success: false,
-      error: err.message || 'No se pudo verificar la huella digital.',
-    };
+    throw new Error(error.message || 'Error en autenticación biométrica.');
   }
 }
