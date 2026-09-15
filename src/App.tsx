@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Patient, Surgery, DoctorProfile, ActiveTab, SurgeryStatus } from './types';
-import { initialDoctorProfile } from './data/mockData';
+import { initialDoctorProfile, initialPatients, initialSurgeries } from './data/mockData';
 import { Navbar } from './components/Navbar';
 import { BottomNav } from './components/BottomNav';
 import { SurgeriesView } from './views/SurgeriesView';
@@ -13,7 +13,7 @@ import { ReportModal } from './components/ReportModal';
 import { PatientModal } from './components/PatientModal';
 import { PatientDetailModal } from './components/PatientDetailModal';
 import { BiometricModal } from './components/BiometricModal';
-import { auth, loginWithGoogle, logout } from './lib/firebase';
+import { auth, loginWithGoogle, logout, getRedirectResult } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import {
   subscribeToPatients,
@@ -25,8 +25,17 @@ import {
   deleteSurgeryFromDb,
   saveProfileToDb
 } from './lib/firebaseService';
-import { loadPrivacyMode, savePrivacyMode } from './lib/storage';
-import { Shield, LogIn } from 'lucide-react';
+import { 
+  loadPatients, 
+  savePatients, 
+  loadSurgeries, 
+  saveSurgeries, 
+  loadDoctorProfile, 
+  saveDoctorProfile, 
+  loadPrivacyMode, 
+  savePrivacyMode 
+} from './lib/storage';
+import { Shield, LogIn, AlertTriangle, Laptop, Loader2 } from 'lucide-react';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -56,10 +65,30 @@ export default function App() {
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   const [selectedPatientDetail, setSelectedPatientDetail] = useState<Patient | null>(null);
 
-  // Authentication Listener
+  // Authentication and Login State
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  // Authentication Listener & Redirect Handling
   useEffect(() => {
+    getRedirectResult(auth)
+      .then((res) => {
+        if (res?.user) {
+          setUser(res.user);
+          setLoginError(null);
+        }
+      })
+      .catch((err) => {
+        console.error("Redirect login error:", err);
+        setLoginError(err.message || "Error al completar el acceso con Google");
+      });
+
     const unsub = onAuthStateChanged(auth, (u) => {
-      setUser(u);
+      // Don't overwrite local-doctor guest session if onAuthStateChanged fires with null
+      setUser((current) => {
+        if (current?.uid === 'local-doctor') return current;
+        return u;
+      });
       setLoadingAuth(false);
     });
     return () => unsub();
@@ -68,6 +97,9 @@ export default function App() {
   // Firebase Subscriptions
   useEffect(() => {
     if (!user) return;
+    if (user.uid === 'local-doctor') {
+      return;
+    }
     
     const unsubPatients = subscribeToPatients(user.uid, setPatients);
     const unsubSurgeries = subscribeToSurgeries(user.uid, setSurgeries);
@@ -93,18 +125,96 @@ export default function App() {
   };
 
   const handleUpdateProfile = (newProfile: DoctorProfile) => {
+    setProfile(newProfile);
+    if (user?.uid === 'local-doctor') {
+      saveDoctorProfile(newProfile);
+      return;
+    }
     if (user) saveProfileToDb(newProfile, user.uid);
   };
 
   const handleDataReset = () => {
-    // Cannot reset data trivially in cloud without deleting all docs.
-    // For now, it's safer to just log out or alert.
-    alert("El reseteo de datos en la nube debe hacerse manualmente documento por documento.");
+    if (user?.uid === 'local-doctor') {
+      savePatients(initialPatients);
+      saveSurgeries(initialSurgeries);
+      saveDoctorProfile(initialDoctorProfile);
+      setPatients(initialPatients);
+      setSurgeries(initialSurgeries);
+      setProfile(initialDoctorProfile);
+      alert("Datos de muestra restablecidos localmente.");
+    } else {
+      alert("El reseteo de datos en la nube debe hacerse manualmente documento por documento.");
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setIsLoggingIn(true);
+    setLoginError(null);
+    try {
+      const u = await loginWithGoogle();
+      if (u) {
+        setUser(u);
+      }
+    } catch (err: any) {
+      console.error("Login failed:", err);
+      let msg = err.message || "Error al iniciar sesión con Google.";
+      if (err.code === 'auth/operation-not-allowed') {
+        msg = "El proveedor de Google aún no está activado en tu Firebase Console. Ve a Firebase Console > Authentication > Sign-in method y habilita Google.";
+      } else if (err.code === 'auth/unauthorized-domain') {
+        msg = `El dominio actual (${window.location.hostname}) no está en la lista de dominios autorizados en Firebase Console (Authentication > Configuración > Dominios autorizados).`;
+      } else if (err.code === 'auth/popup-closed-by-user') {
+        msg = "Se cerró la ventana de inicio de sesión de Google antes de finalizar.";
+      } else if (err.code === 'auth/configuration-not-found') {
+        msg = "Configuración de autenticación no encontrada. Verifica Firebase Console.";
+      }
+      setLoginError(msg);
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleGuestLogin = () => {
+    const localUser = {
+      uid: 'local-doctor',
+      email: 'local@cirugiamed.app',
+      displayName: 'Dr. Local',
+    } as User;
+    setUser(localUser);
+    const localPatients = loadPatients();
+    const localSurgeries = loadSurgeries();
+    const localProfile = loadDoctorProfile();
+    setPatients(localPatients.length > 0 ? localPatients : initialPatients);
+    setSurgeries(localSurgeries.length > 0 ? localSurgeries : initialSurgeries);
+    setProfile(localProfile || initialDoctorProfile);
+    if (localProfile?.biometriaHabilitada) {
+      setIsLocked(true);
+    }
+  };
+
+  const handleLogout = () => {
+    if (user?.uid === 'local-doctor') {
+      setUser(null);
+    } else {
+      logout();
+      setUser(null);
+    }
   };
 
   // Surgery Handlers
   const handleSaveSurgery = async (savedSurgery: Surgery) => {
     if (!user) return;
+    if (user.uid === 'local-doctor') {
+      setSurgeries(prev => {
+        const exists = prev.some(s => s.id === savedSurgery.id);
+        const next = exists ? prev.map(s => s.id === savedSurgery.id ? savedSurgery : s) : [savedSurgery, ...prev];
+        saveSurgeries(next);
+        return next;
+      });
+      if (selectedSurgeryDetail?.id === savedSurgery.id) {
+        setSelectedSurgeryDetail(savedSurgery);
+      }
+      return;
+    }
     try {
       await saveSurgeryToDb(savedSurgery, user.uid);
       if (selectedSurgeryDetail?.id === savedSurgery.id) {
@@ -117,6 +227,17 @@ export default function App() {
   };
 
   const handleDeleteSurgery = async (surgeryId: string) => {
+    if (user?.uid === 'local-doctor') {
+      setSurgeries(prev => {
+        const next = prev.filter(s => s.id !== surgeryId);
+        saveSurgeries(next);
+        return next;
+      });
+      if (selectedSurgeryDetail?.id === surgeryId) {
+        setSelectedSurgeryDetail(null);
+      }
+      return;
+    }
     try {
       await deleteSurgeryFromDb(surgeryId);
       if (selectedSurgeryDetail?.id === surgeryId) {
@@ -132,6 +253,17 @@ export default function App() {
     const surg = surgeries.find(s => s.id === surgeryId);
     if (!surg || !user) return;
     const updated = { ...surg, estado: newStatus };
+    if (user.uid === 'local-doctor') {
+      setSurgeries(prev => {
+        const next = prev.map(s => s.id === surgeryId ? updated : s);
+        saveSurgeries(next);
+        return next;
+      });
+      if (selectedSurgeryDetail?.id === surgeryId) {
+        setSelectedSurgeryDetail(updated);
+      }
+      return;
+    }
     try {
       await saveSurgeryToDb(updated, user.uid);
       if (selectedSurgeryDetail?.id === surgeryId) {
@@ -155,6 +287,17 @@ export default function App() {
         fechaCobroReal: isNowCollected ? new Date().toISOString().split('T')[0] : undefined,
       },
     };
+    if (user.uid === 'local-doctor') {
+      setSurgeries(prev => {
+        const next = prev.map(s => s.id === surgeryId ? updated : s);
+        saveSurgeries(next);
+        return next;
+      });
+      if (selectedSurgeryDetail?.id === surgeryId) {
+        setSelectedSurgeryDetail(updated);
+      }
+      return;
+    }
     try {
       await saveSurgeryToDb(updated, user.uid);
       if (selectedSurgeryDetail?.id === surgeryId) {
@@ -178,6 +321,17 @@ export default function App() {
         fechaPagoEquipo: isNowPaid ? new Date().toISOString().split('T')[0] : undefined,
       },
     };
+    if (user.uid === 'local-doctor') {
+      setSurgeries(prev => {
+        const next = prev.map(s => s.id === surgeryId ? updated : s);
+        saveSurgeries(next);
+        return next;
+      });
+      if (selectedSurgeryDetail?.id === surgeryId) {
+        setSelectedSurgeryDetail(updated);
+      }
+      return;
+    }
     try {
       await saveSurgeryToDb(updated, user.uid);
       if (selectedSurgeryDetail?.id === surgeryId) {
@@ -192,6 +346,18 @@ export default function App() {
   // Patient Handlers
   const handleSavePatient = async (savedPatient: Patient) => {
     if (!user) return;
+    if (user.uid === 'local-doctor') {
+      setPatients(prev => {
+        const exists = prev.some(p => p.id === savedPatient.id);
+        const next = exists ? prev.map(p => p.id === savedPatient.id ? savedPatient : p) : [savedPatient, ...prev];
+        savePatients(next);
+        return next;
+      });
+      if (selectedPatientDetail?.id === savedPatient.id) {
+        setSelectedPatientDetail(savedPatient);
+      }
+      return;
+    }
     try {
       await savePatientToDb(savedPatient, user.uid);
       if (selectedPatientDetail?.id === savedPatient.id) {
@@ -204,6 +370,17 @@ export default function App() {
   };
 
   const handleDeletePatient = async (patientId: string) => {
+    if (user?.uid === 'local-doctor') {
+      setPatients(prev => {
+        const next = prev.filter(p => p.id !== patientId);
+        savePatients(next);
+        return next;
+      });
+      if (selectedPatientDetail?.id === patientId) {
+        setSelectedPatientDetail(null);
+      }
+      return;
+    }
     try {
       await deletePatientFromDb(patientId);
       if (selectedPatientDetail?.id === patientId) {
@@ -283,22 +460,72 @@ export default function App() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4">
-        <div className="bg-white max-w-sm w-full rounded-3xl p-8 shadow-2xl text-center">
-          <div className="w-16 h-16 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center mx-auto mb-6">
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 selection:bg-teal-500 selection:text-white">
+        <div className="bg-white max-w-md w-full rounded-3xl p-7 sm:p-8 shadow-2xl text-center space-y-5 animate-in zoom-in-95 duration-200">
+          <div className="w-16 h-16 bg-teal-100 text-teal-600 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
             <Shield className="w-8 h-8" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 mb-2">CirugíaMed</h1>
-          <p className="text-slate-500 text-sm mb-8">
-            Ingresá a tu cuenta para sincronizar tus pacientes y cirugías en la nube.
-          </p>
-          <button
-            onClick={loginWithGoogle}
-            className="w-full flex items-center justify-center space-x-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl py-3.5 font-bold transition shadow-lg"
-          >
-            <LogIn className="w-5 h-5" />
-            <span>Continuar con Google</span>
-          </button>
+
+          <div>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">CirugíaMed</h1>
+            <p className="text-slate-500 text-xs sm:text-sm mt-1">
+              Gestión quirúrgica, reportes clínicos y finanzas médicas.
+            </p>
+          </div>
+
+          {loginError && (
+            <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3.5 text-left text-xs text-rose-800 flex items-start space-x-2.5">
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <div className="flex-1 space-y-1">
+                <span className="font-bold block">Aviso de inicio de sesión:</span>
+                <p className="leading-relaxed text-slate-700">{loginError}</p>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-3 pt-2">
+            <button
+              id="btn-login-google"
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={isLoggingIn}
+              className="w-full flex items-center justify-center space-x-2.5 bg-slate-900 hover:bg-slate-800 active:scale-98 text-white rounded-xl py-3.5 font-bold text-sm transition shadow-lg disabled:opacity-60"
+            >
+              {isLoggingIn ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-teal-400" />
+                  <span>Conectando con Google...</span>
+                </>
+              ) : (
+                <>
+                  <LogIn className="w-4 h-4 text-teal-400" />
+                  <span>Continuar con Google</span>
+                </>
+              )}
+            </button>
+
+            <div className="relative py-2">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-200"></div>
+              </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="bg-white px-3 text-slate-400 font-medium">o ingresa sin cuenta</span>
+              </div>
+            </div>
+
+            <button
+              id="btn-login-local"
+              type="button"
+              onClick={handleGuestLogin}
+              className="w-full flex items-center justify-center space-x-2 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 rounded-xl py-3 text-xs font-bold transition active:scale-98"
+            >
+              <Laptop className="w-4 h-4 text-teal-600" />
+              <span>Ingresar en Modo Local / Demostración</span>
+            </button>
+            <p className="text-[11px] text-slate-400 leading-tight">
+              Guarda tus pacientes y cirugías en este dispositivo sin requerir autenticación en la nube.
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -357,6 +584,7 @@ export default function App() {
             profile={profile}
             onUpdateProfile={handleUpdateProfile}
             onDataReset={handleDataReset}
+            onLogout={handleLogout}
           />
         )}
       </main>

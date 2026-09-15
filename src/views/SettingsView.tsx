@@ -22,12 +22,14 @@ interface SettingsViewProps {
   profile: DoctorProfile;
   onUpdateProfile: (profile: DoctorProfile) => void;
   onDataReset: () => void;
+  onLogout?: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   profile,
   onUpdateProfile,
   onDataReset,
+  onLogout,
 }) => {
   const [formData, setFormData] = useState<DoctorProfile>(profile);
   const [savedSuccess, setSavedSuccess] = useState(false);
@@ -111,7 +113,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
         <button
           type="button"
-          onClick={logout}
+          onClick={onLogout ? onLogout : logout}
           className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-rose-600 bg-rose-50 hover:bg-rose-100 text-xs font-bold transition"
         >
           <LogOut className="w-3.5 h-3.5" />
