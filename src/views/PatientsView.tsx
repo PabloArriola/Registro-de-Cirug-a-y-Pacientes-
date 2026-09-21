@@ -2,6 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { Search, UserPlus, Phone, MessageSquare, Shield, Activity, ChevronRight, User } from 'lucide-react';
 import { Patient, Surgery, DoctorProfile } from '../types';
 import { formatDateShort } from '../lib/formatters';
+import { FieldMicButton } from '../components/FieldMicButton';
+import { cleanVoiceSentence } from '../lib/speechRecognition';
 
 interface PatientsViewProps {
   patients: Patient[];
@@ -69,7 +71,7 @@ export const PatientsView: React.FC<PatientsViewProps> = ({
 
       {/* Search Bar */}
       <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-sm">
-        <div className="relative">
+        <div className="relative flex items-center">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             id="input-search-patients"
@@ -77,8 +79,11 @@ export const PatientsView: React.FC<PatientsViewProps> = ({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Buscar por DNI, nombre o cobertura médica..."
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2 text-xs sm:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-10 py-2 text-xs sm:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white"
           />
+          <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+            <FieldMicButton onCapture={(val) => setSearchTerm(cleanVoiceSentence(val))} title="Buscar pacientes por voz" />
+          </div>
         </div>
       </div>
 

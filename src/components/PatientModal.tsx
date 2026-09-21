@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, Phone, Shield, FileText, Upload, Trash2, CheckCircle2 } from 'lucide-react';
+import { X, User, Phone, Shield, FileText, Upload, Trash2, CheckCircle2, Mic, Sparkles } from 'lucide-react';
 import { Patient, AttachedMedia } from '../types';
+import { FieldMicButton } from './FieldMicButton';
+import { VoiceGuidedAssistant, VoiceStep } from './VoiceGuidedAssistant';
+import { parseVoiceNumber, parseVoiceDni, cleanVoiceSentence } from '../lib/speechRecognition';
 
 interface PatientModalProps {
   isOpen: boolean;
@@ -26,6 +29,7 @@ export const PatientModal: React.FC<PatientModalProps> = ({
   const [medicacionHabitual, setMedicacionHabitual] = useState(initialPatient?.medicacionHabitual || '');
   const [historiaClinicaResumen, setHistoriaClinicaResumen] = useState(initialPatient?.historiaClinicaResumen || '');
   const [fotosEstudios, setFotosEstudios] = useState<AttachedMedia[]>(initialPatient?.fotosEstudios || []);
+  const [isVoiceAssistantOpen, setIsVoiceAssistantOpen] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -96,6 +100,75 @@ export const PatientModal: React.FC<PatientModalProps> = ({
     onClose();
   };
 
+  const patientVoiceSteps: VoiceStep[] = [
+    {
+      id: 'dni',
+      label: 'DNI / Cédula',
+      question: 'Por favor, indique el DNI o número de documento del paciente',
+      currentValue: dni,
+      onApply: (val) => setDni(parseVoiceDni(val)),
+    },
+    {
+      id: 'nombre',
+      label: 'Nombre y Apellido',
+      question: 'Diga el Nombre y Apellido completo del paciente',
+      currentValue: nombreCompleto,
+      onApply: (val) => setNombreCompleto(cleanVoiceSentence(val)),
+    },
+    {
+      id: 'telefono',
+      label: 'Teléfono / WhatsApp',
+      question: 'Indique el número de teléfono o WhatsApp de contacto',
+      currentValue: telefono,
+      onApply: (val) => setTelefono(val.trim()),
+    },
+    {
+      id: 'edad',
+      label: 'Edad',
+      question: '¿Cuántos años tiene el paciente?',
+      currentValue: edad,
+      onApply: (val) => {
+        const parsed = parseVoiceNumber(val);
+        if (parsed !== undefined) setEdad(parsed);
+      },
+    },
+    {
+      id: 'obraSocial',
+      label: 'Obra Social / Cobertura',
+      question: '¿Qué obra social, prepaga o seguro médico tiene?',
+      currentValue: obraSocial,
+      onApply: (val) => setObraSocial(cleanVoiceSentence(val)),
+    },
+    {
+      id: 'alergias',
+      label: 'Alergias',
+      question: '¿Presenta alguna alergia conocida a medicamentos o materiales?',
+      currentValue: alergias,
+      onApply: (val) => setAlergias(cleanVoiceSentence(val)),
+    },
+    {
+      id: 'medicacion',
+      label: 'Medicación Habitual',
+      question: '¿Toma alguna medicación habitual o crónica?',
+      currentValue: medicacionHabitual,
+      onApply: (val) => setMedicacionHabitual(cleanVoiceSentence(val)),
+    },
+    {
+      id: 'antecedentes',
+      label: 'Antecedentes Médicos',
+      question: 'Indique antecedentes médicos relevantes o cirugías previas',
+      currentValue: antecedentesMedicos,
+      onApply: (val) => setAntecedentesMedicos(cleanVoiceSentence(val)),
+    },
+    {
+      id: 'historia',
+      label: 'Resumen Clínico',
+      question: 'Diga el motivo de consulta o diagnóstico preoperatorio',
+      currentValue: historiaClinicaResumen,
+      onApply: (val) => setHistoriaClinicaResumen(cleanVoiceSentence(val)),
+    },
+  ];
+
   if (!isOpen) return null;
 
   return (
@@ -122,11 +195,37 @@ export const PatientModal: React.FC<PatientModalProps> = ({
 
         {/* Body */}
         <form onSubmit={handleSubmit} className="overflow-y-auto p-5 sm:p-6 space-y-4">
+          
+          {/* Voice Guided Assistant Banner */}
+          <div className="bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-200/80 rounded-2xl p-3 flex items-center justify-between shadow-sm">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-8 h-8 rounded-xl bg-teal-600 text-white flex items-center justify-center shadow-sm">
+                <Mic className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-teal-950 block">Carga de Datos por Voz</span>
+                <span className="text-[11px] text-teal-700">Te guiaremos dictando ítem por ítem</span>
+              </div>
+            </div>
+            <button
+              id="btn-voice-patient-guide"
+              type="button"
+              onClick={() => setIsVoiceAssistantOpen(true)}
+              className="px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold shadow-md shadow-teal-600/20 active:scale-98 transition flex items-center space-x-1.5"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Iniciar Carga Guiada</span>
+            </button>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                DNI / Cédula <span className="text-rose-500">*</span>
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-700">
+                  DNI / Cédula <span className="text-rose-500">*</span>
+                </label>
+                <FieldMicButton onCapture={(val) => setDni(parseVoiceDni(val))} title="Dictar DNI con voz" />
+              </div>
               <input
                 id="input-patient-dni"
                 type="text"
@@ -139,9 +238,12 @@ export const PatientModal: React.FC<PatientModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Nombre y Apellido <span className="text-rose-500">*</span>
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-700">
+                  Nombre y Apellido <span className="text-rose-500">*</span>
+                </label>
+                <FieldMicButton onCapture={(val) => setNombreCompleto(cleanVoiceSentence(val))} title="Dictar nombre y apellido" />
+              </div>
               <input
                 id="input-patient-name"
                 type="text"
@@ -156,9 +258,12 @@ export const PatientModal: React.FC<PatientModalProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Teléfono / WhatsApp
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-700">
+                  Teléfono / WhatsApp
+                </label>
+                <FieldMicButton onCapture={(val) => setTelefono(val.trim())} title="Dictar teléfono" />
+              </div>
               <input
                 type="tel"
                 value={telefono}
@@ -169,9 +274,15 @@ export const PatientModal: React.FC<PatientModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Edad
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-700">
+                  Edad
+                </label>
+                <FieldMicButton onCapture={(val) => {
+                  const p = parseVoiceNumber(val);
+                  if (p !== undefined) setEdad(p);
+                }} title="Dictar edad" />
+              </div>
               <input
                 type="number"
                 min="0"
@@ -184,9 +295,12 @@ export const PatientModal: React.FC<PatientModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Obra Social / Seguro
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-700">
+                  Obra Social / Seguro
+                </label>
+                <FieldMicButton onCapture={(val) => setObraSocial(cleanVoiceSentence(val))} title="Dictar obra social" />
+              </div>
               <input
                 type="text"
                 value={obraSocial}
@@ -199,9 +313,12 @@ export const PatientModal: React.FC<PatientModalProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Alergias Conocidas
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-700">
+                  Alergias Conocidas
+                </label>
+                <FieldMicButton onCapture={(val) => setAlergias(cleanVoiceSentence(val))} title="Dictar alergias" />
+              </div>
               <input
                 type="text"
                 value={alergias}
@@ -212,9 +329,12 @@ export const PatientModal: React.FC<PatientModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Medicación Habitual
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-700">
+                  Medicación Habitual
+                </label>
+                <FieldMicButton onCapture={(val) => setMedicacionHabitual(cleanVoiceSentence(val))} title="Dictar medicación" />
+              </div>
               <input
                 type="text"
                 value={medicacionHabitual}
@@ -226,9 +346,12 @@ export const PatientModal: React.FC<PatientModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Antecedentes Médicos y Quirúrgicos
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-semibold text-slate-700">
+                Antecedentes Médicos y Quirúrgicos
+              </label>
+              <FieldMicButton onCapture={(val) => setAntecedentesMedicos(prev => prev ? `${prev}. ${cleanVoiceSentence(val)}` : cleanVoiceSentence(val))} title="Dictar antecedentes" />
+            </div>
             <textarea
               rows={2}
               value={antecedentesMedicos}
@@ -239,9 +362,12 @@ export const PatientModal: React.FC<PatientModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Motivo de Consulta y Resumen Clínico
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-semibold text-slate-700">
+                Motivo de Consulta y Resumen Clínico
+              </label>
+              <FieldMicButton onCapture={(val) => setHistoriaClinicaResumen(prev => prev ? `${prev}. ${cleanVoiceSentence(val)}` : cleanVoiceSentence(val))} title="Dictar resumen clínico" />
+            </div>
             <textarea
               rows={3}
               value={historiaClinicaResumen}
@@ -315,6 +441,14 @@ export const PatientModal: React.FC<PatientModalProps> = ({
           </div>
         </form>
       </div>
+
+      {/* Voice Guided Assistant Wizard Modal */}
+      <VoiceGuidedAssistant
+        isOpen={isVoiceAssistantOpen}
+        onClose={() => setIsVoiceAssistantOpen(false)}
+        title={initialPatient ? "Actualizar Paciente por Voz" : "Carga Guiada por Voz: Paciente"}
+        steps={patientVoiceSteps}
+      />
     </div>
   );
 };

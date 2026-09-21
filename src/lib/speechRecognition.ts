@@ -207,3 +207,106 @@ export function createSpeechRecognizer(
     isSupported: true,
   };
 }
+
+// Speech Synthesis (Text-to-Speech) for Voice Assistant Prompts
+export function isSpeechSynthesisSupported(): boolean {
+  return typeof window !== 'undefined' && 'speechSynthesis' in window;
+}
+
+export function speakPrompt(text: string, onEnd?: () => void): () => void {
+  if (!isSpeechSynthesisSupported()) {
+    if (onEnd) onEnd();
+    return () => {};
+  }
+
+  try {
+    window.speechSynthesis.cancel(); // Stop any pending speech
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'es-AR';
+    utterance.rate = 1.05;
+    utterance.pitch = 1.0;
+
+    utterance.onend = () => {
+      if (onEnd) onEnd();
+    };
+
+    utterance.onerror = (e) => {
+      console.warn('Speech synthesis error:', e);
+      if (onEnd) onEnd();
+    };
+
+    window.speechSynthesis.speak(utterance);
+    return () => {
+      window.speechSynthesis.cancel();
+    };
+  } catch (err) {
+    console.error('TTS error:', err);
+    if (onEnd) onEnd();
+    return () => {};
+  }
+}
+
+export function stopSpeaking(): void {
+  if (isSpeechSynthesisSupported()) {
+    window.speechSynthesis.cancel();
+  }
+}
+
+// Voice Data Parsers & Cleaners for clinical fields
+const SPANISH_NUMBERS: Record<string, number> = {
+  cero: 0, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10,
+  once: 11, doce: 12, trece: 13, catorce: 14, quince: 15, dieciseis: 16, dieciséis: 16, diecisiete: 17, dieciocho: 18, diecinueve: 19,
+  veinte: 20, veintiuno: 21, veintidos: 22, veintidós: 22, veintitres: 23, veintitrés: 23, veinticuatro: 24, veinticinco: 25,
+  treinta: 30, cuarenta: 40, cincuenta: 50, sesenta: 60, setenta: 70, ochenta: 80, noventa: 90, cien: 100
+};
+
+export function parseVoiceNumber(text: string): number | undefined {
+  if (!text) return undefined;
+  // 1. Check direct digits in string
+  const digitMatch = text.match(/\d+/);
+  if (digitMatch) {
+    const n = parseInt(digitMatch[0], 10);
+    if (!isNaN(n)) return n;
+  }
+
+  // 2. Check spanish number words
+  const clean = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  const words = clean.split(/\s+/);
+  
+  // Try single word
+  for (const w of words) {
+    if (SPANISH_NUMBERS[w] !== undefined) {
+      return SPANISH_NUMBERS[w];
+    }
+  }
+
+  // Compound like "treinta y cinco"
+  if (words.length >= 3 && words[1] === 'y') {
+    const tens = SPANISH_NUMBERS[words[0]];
+    const units = SPANISH_NUMBERS[words[2]];
+    if (tens !== undefined && units !== undefined) {
+      return tens + units;
+    }
+  }
+
+  return undefined;
+}
+
+export function parseVoiceDni(text: string): string {
+  if (!text) return '';
+  // Remove words like "DNI", "número", "cédula", dots, commas
+  const onlyDigits = text.replace(/\D/g, '');
+  if (onlyDigits.length >= 6) {
+    return onlyDigits;
+  }
+  // Fallback: clean text capitalized
+  return text.replace(/[.,]/g, '').trim();
+}
+
+export function cleanVoiceSentence(text: string): string {
+  if (!text) return '';
+  const trimmed = text.trim();
+  // Capitalize first letter
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+}
+

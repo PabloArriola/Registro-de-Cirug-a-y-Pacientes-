@@ -13,8 +13,10 @@ import {
   ChevronRight,
   Scissors
 } from 'lucide-react';
-import { Surgery, Patient, DoctorProfile, SurgeryStatus } from '../types';
-import { formatDateTime, formatDateShort, formatCurrency } from '../lib/formatters';
+import { Surgery, Patient, DoctorProfile, SurgeryStatus, CurrencyType } from '../types';
+import { formatDateTime, formatDateShort, formatCurrency, formatTime } from '../lib/formatters';
+import { FieldMicButton } from '../components/FieldMicButton';
+import { cleanVoiceSentence } from '../lib/speechRecognition';
 
 interface SurgeriesViewProps {
   surgeries: Surgery[];
@@ -83,7 +85,7 @@ export const SurgeriesView: React.FC<SurgeriesViewProps> = ({
 
       {/* Search and Filters */}
       <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
-        <div className="relative">
+        <div className="relative flex items-center">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             id="input-search-surgeries"
@@ -91,8 +93,11 @@ export const SurgeriesView: React.FC<SurgeriesViewProps> = ({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Buscar por procedimiento, paciente o DNI..."
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2 text-xs sm:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-10 py-2 text-xs sm:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white"
           />
+          <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+            <FieldMicButton onCapture={(val) => setSearchTerm(cleanVoiceSentence(val))} title="Buscar cirugías por voz" />
+          </div>
         </div>
 
         {/* Status Pills */}

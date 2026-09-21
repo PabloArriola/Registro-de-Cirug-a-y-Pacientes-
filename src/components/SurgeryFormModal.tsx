@@ -20,7 +20,9 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { Surgery, Patient, DoctorProfile, AttachedMedia, CurrencyType, PaymentMethod, PaymentStatus, SurgeryStatus } from '../types';
-import { createSpeechRecognizer, isSpeechRecognitionSupported, isInIframe, openInStandaloneWindow } from '../lib/speechRecognition';
+import { createSpeechRecognizer, isSpeechRecognitionSupported, isInIframe, openInStandaloneWindow, parseVoiceNumber, cleanVoiceSentence } from '../lib/speechRecognition';
+import { FieldMicButton } from './FieldMicButton';
+import { VoiceGuidedAssistant, VoiceStep } from './VoiceGuidedAssistant';
 
 interface SurgeryFormModalProps {
   isOpen: boolean;
@@ -79,6 +81,9 @@ export const SurgeryFormModal: React.FC<SurgeryFormModalProps> = ({
   const [speechError, setSpeechError] = useState('');
   const [interimText, setInterimText] = useState('');
   const [dictationMode, setDictationMode] = useState<'append' | 'replace'>('append');
+
+  // Voice Assistant
+  const [isVoiceAssistantOpen, setIsVoiceAssistantOpen] = useState(false);
 
   // Multimedia
   const [fotosPostOp, setFotosPostOp] = useState<AttachedMedia[]>(initialSurgery?.fotosPostOp || []);
@@ -287,6 +292,95 @@ export const SurgeryFormModal: React.FC<SurgeryFormModalProps> = ({
     onClose();
   };
 
+  const surgeryVoiceSteps: VoiceStep[] = [
+    {
+      id: 'tipoCirugia',
+      fieldLabel: 'Tipo de Cirugía / Procedimiento',
+      promptQuestion: '¿Qué procedimiento o cirugía realizaste?',
+      helperText: 'Ej: Colecistectomía laparoscópica, hernioplastía inguinal, apendicectomía',
+      currentValue: tipoCirugia,
+      onApply: (val) => setTipoCirugia(cleanVoiceSentence(val)),
+    },
+    {
+      id: 'lugar',
+      fieldLabel: 'Lugar / Centro Quirúrgico',
+      promptQuestion: '¿En qué clínica, sanatorio o quirófano se realizó?',
+      helperText: 'Ej: Quirófano Central, Sanatorio Trinidad, Hospital Italiano',
+      currentValue: lugar,
+      onApply: (val) => setLugar(cleanVoiceSentence(val)),
+    },
+    {
+      id: 'ayudante',
+      fieldLabel: 'Cirujano Ayudante',
+      promptQuestion: '¿Quién fue el primer ayudante médico?',
+      helperText: 'Ej: Dr. Pérez, Dra. Gómez, o di "ninguno" si operaste solo',
+      currentValue: ayudante,
+      onApply: (val) => {
+        const cleaned = cleanVoiceSentence(val);
+        if (!cleaned.toLowerCase().includes('ningun') && !cleaned.toLowerCase().includes('solo')) {
+          setAyudante(cleaned);
+          setShowTeamSection(true);
+        }
+      },
+    },
+    {
+      id: 'anestesista',
+      fieldLabel: 'Anestesiólogo / Anestesia',
+      promptQuestion: '¿Quién fue el o la médica anestesióloga?',
+      helperText: 'Ej: Dr. Rossi, o di "local", "raquídea"',
+      currentValue: anestesista,
+      onApply: (val) => {
+        const cleaned = cleanVoiceSentence(val);
+        if (!cleaned.toLowerCase().includes('ningun')) {
+          setAnestesista(cleaned);
+          setShowTeamSection(true);
+        }
+      },
+    },
+    {
+      id: 'protocoloQuirurgico',
+      fieldLabel: 'Protocolo Quirúrgico',
+      promptQuestion: 'Dicta un resumen del protocolo o hallazgos quirúrgicos:',
+      helperText: 'Puedes dictar hallazgos, pasos principales, biopsias o incidentes',
+      currentValue: protocoloQuirurgico,
+      isMultiline: true,
+      onApply: (val) => {
+        const cleaned = cleanVoiceSentence(val);
+        setProtocoloQuirurgico(prev => prev ? `${prev.trim()}\n${cleaned}` : cleaned);
+      },
+    },
+    {
+      id: 'montoBruto',
+      fieldLabel: 'Honorarios Totales Brutos',
+      promptQuestion: '¿Cuál es el monto total bruto de honorarios pactados?',
+      helperText: 'Di el importe, ej: mil doscientos o 1500',
+      currentValue: montoBruto ? String(montoBruto) : '',
+      onApply: (val) => {
+        const num = parseVoiceNumber(val);
+        if (num !== undefined) setMontoBruto(num);
+      },
+    },
+    {
+      id: 'pagoEquipo',
+      fieldLabel: 'Pago a Equipo Quirúrgico',
+      promptQuestion: '¿Cuánto corresponde pagar a tu ayudante o equipo?',
+      helperText: 'Di el número o di "cero" si no hay pago al equipo',
+      currentValue: pagoEquipo ? String(pagoEquipo) : '',
+      onApply: (val) => {
+        const num = parseVoiceNumber(val);
+        if (num !== undefined) setPagoEquipo(num);
+      },
+    },
+    {
+      id: 'entidadPago',
+      fieldLabel: 'Entidad de Pago o Cobertura',
+      promptQuestion: '¿Cuál es la obra social, prepaga o modalidad de cobro?',
+      helperText: 'Ej: Particular, OSDE, Swiss Medical, Galeno',
+      currentValue: entidadPago,
+      onApply: (val) => setEntidadPago(cleanVoiceSentence(val)),
+    },
+  ];
+
   if (!isOpen) return null;
 
   return (
@@ -313,6 +407,28 @@ export const SurgeryFormModal: React.FC<SurgeryFormModalProps> = ({
 
         {/* Modal Scrollable Body */}
         <form onSubmit={handleSubmit} className="overflow-y-auto p-5 sm:p-6 space-y-6">
+          {/* Voice Guided Assistant Banner */}
+          <div className="bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-200/80 rounded-2xl p-3 flex items-center justify-between shadow-sm">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-8 h-8 rounded-xl bg-teal-600 text-white flex items-center justify-center shadow-sm">
+                <Mic className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-teal-950 block">Carga Rápida de Cirugía por Voz</span>
+                <span className="text-[11px] text-teal-700">Te guiaremos dictando paso a paso los datos quirúrgicos y honorarios</span>
+              </div>
+            </div>
+            <button
+              id="btn-voice-surgery-guide"
+              type="button"
+              onClick={() => setIsVoiceAssistantOpen(true)}
+              className="px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold shadow-md shadow-teal-600/20 active:scale-98 transition flex items-center space-x-1.5"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Iniciar Carga Guiada</span>
+            </button>
+          </div>
+
           {/* SECTION 1: Identificación y Tiempo */}
           <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-4">
             <div className="flex items-center justify-between">
@@ -357,9 +473,12 @@ export const SurgeryFormModal: React.FC<SurgeryFormModalProps> = ({
 
             {/* Surgery Type & Quick Tag Suggestions */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Tipo de Cirugía / Procedimiento
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-700">
+                  Tipo de Cirugía / Procedimiento <span className="text-rose-500">*</span>
+                </label>
+                <FieldMicButton onCapture={(val) => setTipoCirugia(cleanVoiceSentence(val))} title="Dictar tipo de cirugía" />
+              </div>
               <input
                 id="input-surgery-type"
                 type="text"
@@ -401,9 +520,12 @@ export const SurgeryFormModal: React.FC<SurgeryFormModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Lugar / Centro Quirúrgico
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Lugar / Centro Quirúrgico
+                  </label>
+                  <FieldMicButton onCapture={(val) => setLugar(cleanVoiceSentence(val))} title="Dictar lugar / sanatorio" />
+                </div>
                 <input
                   type="text"
                   value={lugar}
@@ -457,9 +579,12 @@ export const SurgeryFormModal: React.FC<SurgeryFormModalProps> = ({
             {showTeamSection && (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">
-                    Ayudante (Cirujano)
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-medium text-slate-600">
+                      Ayudante (Cirujano)
+                    </label>
+                    <FieldMicButton onCapture={(val) => setAyudante(cleanVoiceSentence(val))} title="Dictar ayudante" />
+                  </div>
                   <input
                     type="text"
                     value={ayudante}
@@ -469,9 +594,12 @@ export const SurgeryFormModal: React.FC<SurgeryFormModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">
-                    Anestesiólogo/a
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-medium text-slate-600">
+                      Anestesiólogo/a
+                    </label>
+                    <FieldMicButton onCapture={(val) => setAnestesista(cleanVoiceSentence(val))} title="Dictar anestesiólogo" />
+                  </div>
                   <input
                     type="text"
                     value={anestesista}
@@ -481,9 +609,12 @@ export const SurgeryFormModal: React.FC<SurgeryFormModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">
-                    Instrumentadora
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-medium text-slate-600">
+                      Instrumentadora
+                    </label>
+                    <FieldMicButton onCapture={(val) => setInstrumentadora(cleanVoiceSentence(val))} title="Dictar instrumentadora" />
+                  </div>
                   <input
                     type="text"
                     value={instrumentadora}
@@ -736,9 +867,18 @@ export const SurgeryFormModal: React.FC<SurgeryFormModalProps> = ({
             {/* Financial Numbers: Gross, Team, Net */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Monto Total Bruto ({moneda === 'USD' ? 'USD' : profile.monedaLocalSimbolo})
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Monto Total Bruto ({moneda === 'USD' ? 'USD' : profile.monedaLocalSimbolo})
+                  </label>
+                  <FieldMicButton
+                    onCapture={(val) => {
+                      const num = parseVoiceNumber(val);
+                      if (num !== undefined) setMontoBruto(num);
+                    }}
+                    title="Dictar monto bruto"
+                  />
+                </div>
                 <input
                   id="input-monto-bruto"
                   type="number"
@@ -752,9 +892,18 @@ export const SurgeryFormModal: React.FC<SurgeryFormModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Pago a Equipo / Ayudante
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Pago a Equipo / Ayudante
+                  </label>
+                  <FieldMicButton
+                    onCapture={(val) => {
+                      const num = parseVoiceNumber(val);
+                      if (num !== undefined) setPagoEquipo(num);
+                    }}
+                    title="Dictar pago a equipo"
+                  />
+                </div>
                 <input
                   id="input-pago-equipo"
                   type="number"
@@ -797,9 +946,12 @@ export const SurgeryFormModal: React.FC<SurgeryFormModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Entidad / Nombre
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Entidad / Nombre
+                  </label>
+                  <FieldMicButton onCapture={(val) => setEntidadPago(cleanVoiceSentence(val))} title="Dictar entidad de pago" />
+                </div>
                 <input
                   type="text"
                   value={entidadPago}
@@ -879,6 +1031,14 @@ export const SurgeryFormModal: React.FC<SurgeryFormModalProps> = ({
           </div>
         </form>
       </div>
+
+      {/* Voice Guided Assistant Wizard Modal */}
+      <VoiceGuidedAssistant
+        isOpen={isVoiceAssistantOpen}
+        onClose={() => setIsVoiceAssistantOpen(false)}
+        title={initialSurgery ? "Actualizar Cirugía por Voz" : "Carga Guiada por Voz: Cirugía"}
+        steps={surgeryVoiceSteps}
+      />
     </div>
   );
 };
