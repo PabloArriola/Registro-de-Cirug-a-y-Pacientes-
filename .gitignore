@@ -7,3 +7,7 @@ coverage/
 .env*
 !.env.example
 .firebase/
+backups/
+*.backup.json
+serviceAccountKey*.json
+credentials*.json

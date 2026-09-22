@@ -23,7 +23,8 @@ import {
   deletePatientFromDb,
   saveSurgeryToDb,
   deleteSurgeryFromDb,
-  saveProfileToDb
+  saveProfileToDb,
+  checkAndCreateDailySnapshot
 } from './lib/firebaseService';
 import { 
   loadPatients, 
@@ -114,6 +115,13 @@ export default function App() {
       unsubProfile();
     };
   }, [user]);
+
+  // Automatic Daily In-Database Snapshot (Ensures a daily historical archive in Firestore)
+  useEffect(() => {
+    if (user && user.uid !== 'local-doctor' && (patients.length > 0 || surgeries.length > 0)) {
+      checkAndCreateDailySnapshot(user.uid, patients, surgeries, profile);
+    }
+  }, [user, patients.length, surgeries.length, profile]);
 
   // Sync state
   const handleTogglePrivacy = () => {
