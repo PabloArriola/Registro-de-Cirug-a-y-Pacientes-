@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Mic,
   MicOff,
@@ -20,6 +20,7 @@ import {
   stopSpeaking,
   cleanVoiceSentence
 } from '../lib/speechRecognition';
+import { VoiceSettingsModal } from './VoiceSettingsModal';
 
 export interface VoiceStep {
   id: string;
@@ -52,6 +53,7 @@ export const VoiceGuidedAssistant: React.FC<VoiceGuidedAssistantProps> = ({
   const [capturedText, setCapturedText] = useState('');
   const [interimText, setInterimText] = useState('');
   const [isSpeakingPrompt, setIsSpeakingPrompt] = useState(false);
+  const [isVoiceSettingsOpen, setIsVoiceSettingsOpen] = useState(false);
 
   const recognizerRef = useRef<{ start: () => Promise<void>; stop: () => void } | null>(null);
   const cancelSpeakingRef = useRef<(() => void) | null>(null);
@@ -198,6 +200,15 @@ export const VoiceGuidedAssistant: React.FC<VoiceGuidedAssistantProps> = ({
           </div>
 
           <div className="flex items-center space-x-2">
+            <button
+              type="button"
+              onClick={() => setIsVoiceSettingsOpen(true)}
+              title="Elegir voz más natural o menos robótica"
+              className="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-teal-300 hover:text-white border border-slate-700 text-xs font-semibold transition"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-teal-400" />
+              <span className="hidden sm:inline">Voz Natural</span>
+            </button>
             <button
               type="button"
               onClick={() => setSpeechEnabled(!speechEnabled)}
@@ -348,6 +359,24 @@ export const VoiceGuidedAssistant: React.FC<VoiceGuidedAssistantProps> = ({
         </div>
 
       </div>
+
+      {/* Voice Settings & Tone Selector Modal */}
+      <VoiceSettingsModal
+        isOpen={isVoiceSettingsOpen}
+        onClose={() => setIsVoiceSettingsOpen(false)}
+        onSaved={() => {
+          // Re-trigger current step question with new voice if enabled
+          if (speechEnabled && currentStep) {
+            cleanupAudio();
+            setIsSpeakingPrompt(true);
+            const cancel = speakPrompt(currentStep.question, () => {
+              setIsSpeakingPrompt(false);
+              startListeningForCurrentStep();
+            });
+            cancelSpeakingRef.current = cancel;
+          }
+        }}
+      />
     </div>
   );
 };

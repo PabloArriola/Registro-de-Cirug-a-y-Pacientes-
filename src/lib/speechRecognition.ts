@@ -209,11 +209,128 @@ export function createSpeechRecognizer(
 }
 
 // Speech Synthesis (Text-to-Speech) for Voice Assistant Prompts
+const PREFERRED_VOICE_KEY = 'cirugiamed_preferred_voice_uri';
+const PREFERRED_RATE_KEY = 'cirugiamed_preferred_voice_rate';
+
 export function isSpeechSynthesisSupported(): boolean {
   return typeof window !== 'undefined' && 'speechSynthesis' in window;
 }
 
-export function speakPrompt(text: string, onEnd?: () => void): () => void {
+export function getSavedVoiceUri(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(PREFERRED_VOICE_KEY);
+}
+
+export function savePreferredVoiceUri(uri: string): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(PREFERRED_VOICE_KEY, uri);
+}
+
+export function getSavedVoiceRate(): number {
+  if (typeof window === 'undefined') return 0.98;
+  const val = localStorage.getItem(PREFERRED_RATE_KEY);
+  if (!val) return 0.98;
+  const num = parseFloat(val);
+  return isNaN(num) ? 0.98 : num;
+}
+
+export function savePreferredVoiceRate(rate: number): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(PREFERRED_RATE_KEY, String(rate));
+}
+
+export function scoreSpanishVoice(v: SpeechSynthesisVoice): number {
+  let score = 0;
+  const name = v.name.toLowerCase();
+  const lang = v.lang.toLowerCase();
+
+  // Must be Spanish
+  if (!lang.startsWith('es') && !lang.includes('spanish')) {
+    return -200;
+  }
+
+  // 1. Natural / Neural / Premium indicators (Modern AI voices)
+  if (name.includes('natural') || name.includes('neural')) score += 60;
+  if (name.includes('online')) score += 30;
+  if (name.includes('google')) score += 35;
+  if (name.includes('premium') || name.includes('enhanced') || name.includes('siri')) score += 45;
+  if (name.includes('multilingual')) score += 20;
+
+  // 2. Penalize robotic legacy offline voices
+  if (name.includes('desktop')) score -= 30;
+  if (name.includes('espeak')) score -= 60;
+  if (name.includes('compact')) score -= 20;
+
+  // 3. Dialect preferences: Argentine / Latam preferred
+  if (lang.includes('ar') || name.includes('argentina') || name.includes('tomas') || name.includes('paloma')) score += 25;
+  else if (lang.includes('419') || lang.includes('mx') || lang.includes('us')) score += 15;
+  else if (lang.includes('es')) score += 10;
+
+  // Remote neural service
+  if (v.localService === false) score += 20;
+
+  return score;
+}
+
+export function isNaturalVoice(v: SpeechSynthesisVoice): boolean {
+  const n = v.name.toLowerCase();
+  return (
+    n.includes('natural') ||
+    n.includes('neural') ||
+    n.includes('google') ||
+    n.includes('siri') ||
+    n.includes('premium') ||
+    n.includes('enhanced') ||
+    n.includes('online') ||
+    v.localService === false
+  );
+}
+
+export function getAvailableSpanishVoices(): SpeechSynthesisVoice[] {
+  if (!isSpeechSynthesisSupported()) return [];
+  const allVoices = window.speechSynthesis.getVoices();
+  const spanish = allVoices.filter(v => {
+    const l = v.lang.toLowerCase();
+    return l.startsWith('es') || l.includes('spanish');
+  });
+
+  return spanish.sort((a, b) => scoreSpanishVoice(b) - scoreSpanishVoice(a));
+}
+
+export function getBestSpanishVoice(targetUri?: string): SpeechSynthesisVoice | null {
+  const voices = getAvailableSpanishVoices();
+  if (voices.length === 0) return null;
+
+  const preferredUri = targetUri || getSavedVoiceUri();
+  if (preferredUri) {
+    const found = voices.find(v => v.voiceURI === preferredUri || v.name === preferredUri);
+    if (found) return found;
+  }
+
+  // Return top scored voice
+  return voices[0] || null;
+}
+
+export function subscribeVoicesChanged(callback: (voices: SpeechSynthesisVoice[]) => void): () => void {
+  if (!isSpeechSynthesisSupported()) return () => {};
+
+  const handler = () => {
+    callback(getAvailableSpanishVoices());
+  };
+
+  // Run once immediately
+  const initial = getAvailableSpanishVoices();
+  if (initial.length > 0) {
+    callback(initial);
+  }
+
+  window.speechSynthesis.addEventListener('voiceschanged', handler);
+  return () => {
+    window.speechSynthesis.removeEventListener('voiceschanged', handler);
+  };
+}
+
+export function speakPrompt(text: string, onEnd?: () => void, targetVoiceUri?: string): () => void {
   if (!isSpeechSynthesisSupported()) {
     if (onEnd) onEnd();
     return () => {};
@@ -222,26 +339,63 @@ export function speakPrompt(text: string, onEnd?: () => void): () => void {
   try {
     window.speechSynthesis.cancel(); // Stop any pending speech
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'es-AR';
-    utterance.rate = 1.05;
+
+    const voice = getBestSpanishVoice(targetVoiceUri);
+    if (voice) {
+      utterance.voice = voice;
+      utterance.lang = voice.lang;
+    } else {
+      utterance.lang = 'es-AR';
+    }
+
+    const savedRate = getSavedVoiceRate();
+    utterance.rate = savedRate;
     utterance.pitch = 1.0;
 
-    utterance.onend = () => {
-      if (onEnd) onEnd();
+    let hasEnded = false;
+    const safeEnd = () => {
+      if (!hasEnded) {
+        hasEnded = true;
+        if (onEnd) onEnd();
+      }
     };
 
+    utterance.onend = safeEnd;
     utterance.onerror = (e) => {
       console.warn('Speech synthesis error:', e);
-      if (onEnd) onEnd();
+      safeEnd();
     };
+
+    window.speechSynthesis.speak(utterance);
+    return () => {
+      safeEnd();
+      window.speechSynthesis.cancel();
+    };
+  } catch (err) {
+    console.error('TTS error:', err);
+    if (onEnd) onEnd();
+    return () => {};
+  }
+}
+
+export function testVoice(voice: SpeechSynthesisVoice, sampleText?: string, rate?: number): () => void {
+  if (!isSpeechSynthesisSupported()) return () => {};
+
+  try {
+    window.speechSynthesis.cancel();
+    const text = sampleText || 'Hola Doctor. Esta es mi voz para guiarlo paso a paso en el quirófano.';
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.voice = voice;
+    utterance.lang = voice.lang;
+    utterance.rate = rate !== undefined ? rate : getSavedVoiceRate();
+    utterance.pitch = 1.0;
 
     window.speechSynthesis.speak(utterance);
     return () => {
       window.speechSynthesis.cancel();
     };
   } catch (err) {
-    console.error('TTS error:', err);
-    if (onEnd) onEnd();
+    console.error('Error testing voice:', err);
     return () => {};
   }
 }

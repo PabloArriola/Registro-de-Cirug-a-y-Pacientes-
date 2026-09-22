@@ -11,12 +11,15 @@ import {
   LogOut,
   Building,
   Phone,
-  Mail
+  Mail,
+  Mic,
+  Sparkles
 } from 'lucide-react';
 import { DoctorProfile } from '../types';
 import { exportAppDataAsJson, importAppDataFromJson, resetToMockData } from '../lib/storage';
 import { logout } from '../lib/firebase';
 import { isBiometricAvailable, registerBiometric, hasSavedBiometric } from '../lib/webauthn';
+import { VoiceSettingsModal } from '../components/VoiceSettingsModal';
 
 interface SettingsViewProps {
   profile: DoctorProfile;
@@ -35,6 +38,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [biometricFeedback, setBiometricFeedback] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
   const [isRegisteringBio, setIsRegisteringBio] = useState(false);
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
 
   const handleRegisterBiometric = async () => {
     setIsRegisteringBio(true);
@@ -276,6 +280,39 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
         </div>
 
+        {/* Voice Assistant & Natural Speech Card */}
+        <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+              <Mic className="w-4 h-4 text-teal-600" />
+              Asistente de Voz y Quirófano
+            </h2>
+            <span className="text-[10px] bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-200">
+              Voces Humanas
+            </span>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl bg-gradient-to-r from-teal-50/60 to-emerald-50/60 border border-teal-200/80 gap-3">
+            <div>
+              <span className="font-bold text-xs text-slate-900 block flex items-center gap-1.5">
+                <span>Personalizar Voz (Menos Robótica)</span>
+                <Sparkles className="w-3.5 h-3.5 text-teal-600" />
+              </span>
+              <p className="text-[11px] text-slate-600 mt-0.5">
+                Elige voces neuronales de alta definición (Siri, Google, Microsoft Natural) y ajusta la velocidad para que suene como un asistente médico humano.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsVoiceModalOpen(true)}
+              className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold shadow-md shadow-teal-600/20 active:scale-98 transition flex items-center space-x-1.5 shrink-0 self-start sm:self-auto"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Configurar Voz</span>
+            </button>
+          </div>
+        </div>
+
         {/* Currency & Financial Configuration */}
         <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-4">
           <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
@@ -367,6 +404,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Voice Configuration Modal */}
+      <VoiceSettingsModal
+        isOpen={isVoiceModalOpen}
+        onClose={() => setIsVoiceModalOpen(false)}
+      />
     </div>
   );
 };
