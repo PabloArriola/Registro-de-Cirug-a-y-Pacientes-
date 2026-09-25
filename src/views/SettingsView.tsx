@@ -6,7 +6,6 @@ import {
   DollarSign,
   Download,
   Upload,
-  RotateCcw,
   CheckCircle2,
   LogOut,
   Building,
@@ -16,7 +15,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { DoctorProfile } from '../types';
-import { exportAppDataAsJson, importAppDataFromJson, resetToMockData } from '../lib/storage';
+import { exportAppDataAsJson, importAppDataFromJson } from '../lib/storage';
 import { logout } from '../lib/firebase';
 import { isBiometricAvailable, registerBiometric, hasSavedBiometric } from '../lib/webauthn';
 import { VoiceSettingsModal } from '../components/VoiceSettingsModal';
@@ -24,7 +23,7 @@ import { VoiceSettingsModal } from '../components/VoiceSettingsModal';
 interface SettingsViewProps {
   profile: DoctorProfile;
   onUpdateProfile: (profile: DoctorProfile) => void;
-  onDataReset: () => void;
+  onDataReset?: () => void;
   onLogout?: () => void;
 }
 
@@ -93,14 +92,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       }
     };
     reader.readAsText(file);
-  };
-
-  const handleResetData = () => {
-    if (confirm('¿Restablecer datos a los ejemplos de muestra iniciales?')) {
-      resetToMockData();
-      onDataReset();
-      alert('Datos de muestra restablecidos.');
-    }
   };
 
   return (
@@ -393,15 +384,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <span>Restaurar Copia (.json)</span>
             <input type="file" accept=".json" onChange={handleImport} className="hidden" />
           </label>
-
-          <button
-            type="button"
-            onClick={handleResetData}
-            className="flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold border border-rose-200 transition"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Reiniciar datos demo</span>
-          </button>
         </div>
       </div>
 
