@@ -163,8 +163,8 @@ export const BiometricModal: React.FC<BiometricModalProps> = ({
           ))}
           <button
             type="button"
-            onClick={() => setPinInput('')}
-            className="w-16 h-12 rounded-xl bg-slate-800/40 text-xs font-semibold text-slate-400 hover:text-white"
+            onClick={() => setPinInput(prev => prev.slice(0, -1))}
+            className="w-16 h-12 rounded-xl bg-slate-800/40 text-xs font-semibold text-slate-400 hover:text-white active:bg-slate-700 transition"
           >
             Borrar
           </button>
@@ -175,18 +175,15 @@ export const BiometricModal: React.FC<BiometricModalProps> = ({
           >
             0
           </button>
-          <button
-            type="button"
-            onClick={onUnlock}
-            className="w-16 h-12 rounded-xl bg-teal-500/20 text-teal-300 text-xs font-bold hover:bg-teal-500/30"
-            title="Acceso directo de desarrollo"
-          >
-            Omitir
-          </button>
+          <div className="w-16 h-12" />
         </div>
 
         <p className="text-[11px] text-slate-500 mt-4">
-          PIN de seguridad por defecto: <span className="font-mono text-slate-400 font-semibold">{profile.pinSeguridad || '1234'}</span>
+          {(!profile.pinSeguridad || profile.pinSeguridad === '1234') ? (
+            <>PIN de seguridad inicial: <span className="font-mono text-slate-400 font-semibold">1234</span></>
+          ) : (
+            <span>Ingresa tu PIN de 4 dígitos configurado</span>
+          )}
         </p>
       </div>
     </div>
