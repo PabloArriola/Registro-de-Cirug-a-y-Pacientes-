@@ -95,7 +95,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   return (
-    <div className="space-y-6 pb-24 max-w-2xl mx-auto">
+    <div className="space-y-6 pb-24 max-w-5xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -116,9 +116,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
-
-        {/* Profile Card */}
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+          {/* Profile Card */}
         <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-4">
           <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
             <User className="w-4 h-4 text-teal-600" />
@@ -339,8 +339,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Save button */}
+      {/* Save button */}
         <div className="flex items-center justify-end space-x-3">
           {savedSuccess && (
             <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">

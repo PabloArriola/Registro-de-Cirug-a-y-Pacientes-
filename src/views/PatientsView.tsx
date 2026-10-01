@@ -45,6 +45,13 @@ export const PatientsView: React.FC<PatientsViewProps> = ({
     return map;
   }, [surgeries]);
 
+  const patientStats = useMemo(() => {
+    const total = (patients || []).length;
+    const withSurgery = Object.keys(surgeriesCountByPatient).length;
+    const uniqueInsurances = new Set((patients || []).map(p => p.obraSocial).filter(Boolean)).size;
+    return { total, withSurgery, uniqueInsurances };
+  }, [patients, surgeriesCountByPatient]);
+
   return (
     <div className="space-y-5 pb-24">
       {/* Header */}
@@ -69,6 +76,37 @@ export const PatientsView: React.FC<PatientsViewProps> = ({
         </button>
       </div>
 
+      {/* Quick Summary Strip on Desktop */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Total Pacientes</span>
+            <span className="text-xl font-black text-slate-900">{patientStats.total}</span>
+          </div>
+          <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+            <User className="w-4 h-4" />
+          </div>
+        </div>
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Con Cirugías Realizadas</span>
+            <span className="text-xl font-black text-teal-600">{patientStats.withSurgery}</span>
+          </div>
+          <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold">
+            <Activity className="w-4 h-4" />
+          </div>
+        </div>
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Coberturas / Obras Sociales</span>
+            <span className="text-xl font-black text-emerald-600">{patientStats.uniqueInsurances}</span>
+          </div>
+          <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+            <Shield className="w-4 h-4" />
+          </div>
+        </div>
+      </div>
+
       {/* Search Bar */}
       <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-sm">
         <div className="relative flex items-center">
@@ -89,7 +127,7 @@ export const PatientsView: React.FC<PatientsViewProps> = ({
 
       {/* Patients List */}
       {filteredPatients.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
           {filteredPatients.map(patient => {
             const surgCount = surgeriesCountByPatient[patient.id] || 0;
             return (

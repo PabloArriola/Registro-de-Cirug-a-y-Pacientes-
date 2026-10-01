@@ -18,7 +18,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   const [showQuickMenu, setShowQuickMenu] = useState(false);
 
   return (
-    <>
+    <div className="md:hidden">
       {/* Floating Action Menu Overlay Backdrop */}
       {showQuickMenu && (
         <div
@@ -142,6 +142,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           </button>
         </div>
       </nav>
-    </>
+    </div>
   );
 };

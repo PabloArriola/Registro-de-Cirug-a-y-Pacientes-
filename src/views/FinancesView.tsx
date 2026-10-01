@@ -307,134 +307,137 @@ export const FinancesView: React.FC<FinancesViewProps> = ({
         </div>
       </div>
 
-      {/* Actionable Section 1: Cuentas Pendientes de Cobro (Ingresos) */}
-      <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-            Cirugías Pendientes de Cobro ({pendingCollections.length})
-          </h2>
-          <span className="text-xs text-slate-400">
-            Toca "Marcar Cobrado" al recibir la liquidación
-          </span>
+      {/* Desktop 2-Column Split for Pending Accounts Receivable vs. Payable */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        {/* Actionable Section 1: Cuentas Pendientes de Cobro (Ingresos) */}
+        <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+              Cirugías Pendientes de Cobro ({pendingCollections.length})
+            </h2>
+            <span className="text-xs text-slate-400">
+              Toca "Marcar Cobrado" al recibir la liquidación
+            </span>
+          </div>
+
+          {pendingCollections.length > 0 ? (
+            <div className="divide-y divide-slate-100">
+              {pendingCollections.map(surgery => (
+                <div
+                  key={surgery.id}
+                  className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70 p-2 rounded-xl transition"
+                >
+                  <div
+                    className="cursor-pointer space-y-0.5"
+                    onClick={() => onSelectSurgery(surgery)}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <span className="font-bold text-sm text-slate-900 hover:text-teal-700">
+                        {surgery.tipoCirugia}
+                      </span>
+                      <span className="text-xs font-semibold text-slate-500">
+                        • {surgery.pacienteNombre}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      {formatDateShort(surgery.fechaCirugia)} • Cobertura: <strong className="text-slate-700">{surgery.finanzas.entidadPago}</strong>
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between sm:justify-end gap-3">
+                    <div className="text-right">
+                      <span className="text-sm font-black text-slate-900 block">
+                        {formatCurrency(surgery.finanzas.montoBruto, surgery.finanzas.moneda, profile, isPrivate)}
+                      </span>
+                      <span className="text-[10px] text-emerald-700 font-bold block">
+                        Neto: {formatCurrency(surgery.finanzas.gananciaNeta, surgery.finanzas.moneda, profile, isPrivate)}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => onTogglePaymentStatus(surgery.id)}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-sm transition active:scale-95 flex items-center gap-1.5"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Marcar Cobrado</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-400 italic p-4 text-center bg-slate-50 rounded-2xl">
+              ¡Excelente! No tienes cirugías pendientes de cobro en este período.
+            </p>
+          )}
         </div>
 
-        {pendingCollections.length > 0 ? (
-          <div className="divide-y divide-slate-100">
-            {pendingCollections.map(surgery => (
-              <div
-                key={surgery.id}
-                className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70 p-2 rounded-xl transition"
-              >
-                <div
-                  className="cursor-pointer space-y-0.5"
-                  onClick={() => onSelectSurgery(surgery)}
-                >
-                  <div className="flex items-center space-x-2">
-                    <span className="font-bold text-sm text-slate-900 hover:text-teal-700">
-                      {surgery.tipoCirugia}
-                    </span>
-                    <span className="text-xs font-semibold text-slate-500">
-                      • {surgery.pacienteNombre}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    {formatDateShort(surgery.fechaCirugia)} • Cobertura: <strong className="text-slate-700">{surgery.finanzas.entidadPago}</strong>
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between sm:justify-end gap-3">
-                  <div className="text-right">
-                    <span className="text-sm font-black text-slate-900 block">
-                      {formatCurrency(surgery.finanzas.montoBruto, surgery.finanzas.moneda, profile, isPrivate)}
-                    </span>
-                    <span className="text-[10px] text-emerald-700 font-bold block">
-                      Neto: {formatCurrency(surgery.finanzas.gananciaNeta, surgery.finanzas.moneda, profile, isPrivate)}
-                    </span>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => onTogglePaymentStatus(surgery.id)}
-                    className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-sm transition active:scale-95 flex items-center gap-1.5"
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>Marcar Cobrado</span>
-                  </button>
-                </div>
-              </div>
-            ))}
+        {/* Actionable Section 2: Deudas a Equipo Médico (Egresos a Colegas) */}
+        <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+              Honorarios por Pagar a Ayudantes ({pendingTeamPayments.length})
+            </h2>
+            <span className="text-xs text-slate-400">
+              Toca "Marcar Pagado" cuando le transfieras a tu colega
+            </span>
           </div>
-        ) : (
-          <p className="text-xs text-slate-400 italic p-4 text-center bg-slate-50 rounded-2xl">
-            ¡Excelente! No tienes cirugías pendientes de cobro en este período.
-          </p>
-        )}
-      </div>
 
-      {/* Actionable Section 2: Deudas a Equipo Médico (Egresos a Colegas) */}
-      <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
-            Honorarios por Pagar a Ayudantes ({pendingTeamPayments.length})
-          </h2>
-          <span className="text-xs text-slate-400">
-            Toca "Marcar Pagado" cuando le transfieras a tu colega
-          </span>
+          {pendingTeamPayments.length > 0 ? (
+            <div className="divide-y divide-slate-100">
+              {pendingTeamPayments.map(surgery => (
+                <div
+                  key={surgery.id}
+                  className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70 p-2 rounded-xl transition"
+                >
+                  <div
+                    className="cursor-pointer space-y-0.5"
+                    onClick={() => onSelectSurgery(surgery)}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <span className="font-bold text-sm text-slate-900 hover:text-teal-700">
+                        Ayudante: {surgery.equipoMedico.ayudante || 'Equipo quirúrgico'}
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        ({surgery.tipoCirugia})
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Cirugía del {formatDateShort(surgery.fechaCirugia)} • Paciente: {surgery.pacienteNombre}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between sm:justify-end gap-3">
+                    <div className="text-right">
+                      <span className="text-sm font-black text-rose-700 block">
+                        {formatCurrency(surgery.finanzas.pagoEquipo, surgery.finanzas.moneda, profile, isPrivate)}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-semibold block">
+                        A transferir
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => onToggleTeamPaymentStatus(surgery.id)}
+                      className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-sm transition active:scale-95 flex items-center gap-1.5"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Marcar Pagado</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-400 italic p-4 text-center bg-slate-50 rounded-2xl">
+              No tienes pagos pendientes a tus colegas ayudantes.
+            </p>
+          )}
         </div>
-
-        {pendingTeamPayments.length > 0 ? (
-          <div className="divide-y divide-slate-100">
-            {pendingTeamPayments.map(surgery => (
-              <div
-                key={surgery.id}
-                className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70 p-2 rounded-xl transition"
-              >
-                <div
-                  className="cursor-pointer space-y-0.5"
-                  onClick={() => onSelectSurgery(surgery)}
-                >
-                  <div className="flex items-center space-x-2">
-                    <span className="font-bold text-sm text-slate-900 hover:text-teal-700">
-                      Ayudante: {surgery.equipoMedico.ayudante || 'Equipo quirúrgico'}
-                    </span>
-                    <span className="text-xs text-slate-500">
-                      ({surgery.tipoCirugia})
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    Cirugía del {formatDateShort(surgery.fechaCirugia)} • Paciente: {surgery.pacienteNombre}
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between sm:justify-end gap-3">
-                  <div className="text-right">
-                    <span className="text-sm font-black text-rose-700 block">
-                      {formatCurrency(surgery.finanzas.pagoEquipo, surgery.finanzas.moneda, profile, isPrivate)}
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-semibold block">
-                      A transferir
-                    </span>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => onToggleTeamPaymentStatus(surgery.id)}
-                    className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-sm transition active:scale-95 flex items-center gap-1.5"
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>Marcar Pagado</span>
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-xs text-slate-400 italic p-4 text-center bg-slate-50 rounded-2xl">
-            No tienes pagos pendientes a tus colegas ayudantes.
-          </p>
-        )}
       </div>
 
       {/* Analytical Section: Profitability by Procedure */}
@@ -445,7 +448,7 @@ export const FinancesView: React.FC<FinancesViewProps> = ({
         </h2>
 
         {procedureBreakdown.length > 0 ? (
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {procedureBreakdown.map(([procedureName, stats]) => (
               <div key={procedureName} className="p-3 bg-slate-50 rounded-2xl border border-slate-200/80">
                 <div className="flex items-center justify-between mb-1.5">

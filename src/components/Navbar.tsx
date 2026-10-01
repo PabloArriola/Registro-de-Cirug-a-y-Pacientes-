@@ -1,6 +1,6 @@
 import React from 'react';
-import { ShieldCheck, Eye, EyeOff, Lock, Stethoscope, AlertCircle, ExternalLink } from 'lucide-react';
-import { DoctorProfile, Surgery } from '../types';
+import { ShieldCheck, Eye, EyeOff, Lock, Stethoscope, AlertCircle, ExternalLink, Activity, Users, DollarSign, Settings, UserPlus } from 'lucide-react';
+import { DoctorProfile, Surgery, ActiveTab } from '../types';
 import { isInIframe, openInStandaloneWindow } from '../lib/speechRecognition';
 
 interface NavbarProps {
@@ -10,6 +10,9 @@ interface NavbarProps {
   onTogglePrivacy: () => void;
   onLockScreen?: () => void;
   onOpenNewSurgery: () => void;
+  activeTab?: ActiveTab;
+  onTabChange?: (tab: ActiveTab) => void;
+  onOpenNewPatient?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -19,6 +22,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   onTogglePrivacy,
   onLockScreen,
   onOpenNewSurgery,
+  activeTab,
+  onTabChange,
+  onOpenNewPatient,
 }) => {
   // Calculate quick metrics for top bar safely
   const safeSurgeries = Array.isArray(surgeries) ? surgeries : [];
@@ -48,10 +54,68 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
+          {/* Desktop Central Navigation Links */}
+          {onTabChange && activeTab && (
+            <nav className="hidden md:flex items-center space-x-1 bg-slate-800/80 p-1.5 rounded-xl border border-slate-700/60 shadow-inner">
+              <button
+                id="desktop-nav-cirugias"
+                type="button"
+                onClick={() => onTabChange('cirugias')}
+                className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition ${
+                  activeTab === 'cirugias'
+                    ? 'bg-teal-500 text-slate-950 shadow-sm shadow-teal-500/20'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+                }`}
+              >
+                <Activity className="w-4 h-4" />
+                <span>Cirugías</span>
+              </button>
+              <button
+                id="desktop-nav-pacientes"
+                type="button"
+                onClick={() => onTabChange('pacientes')}
+                className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition ${
+                  activeTab === 'pacientes'
+                    ? 'bg-teal-500 text-slate-950 shadow-sm shadow-teal-500/20'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                <span>Pacientes</span>
+              </button>
+              <button
+                id="desktop-nav-finanzas"
+                type="button"
+                onClick={() => onTabChange('finanzas')}
+                className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition ${
+                  activeTab === 'finanzas'
+                    ? 'bg-teal-500 text-slate-950 shadow-sm shadow-teal-500/20'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+                }`}
+              >
+                <DollarSign className="w-4 h-4" />
+                <span>Finanzas</span>
+              </button>
+              <button
+                id="desktop-nav-ajustes"
+                type="button"
+                onClick={() => onTabChange('ajustes')}
+                className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition ${
+                  activeTab === 'ajustes'
+                    ? 'bg-teal-500 text-slate-950 shadow-sm shadow-teal-500/20'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+                }`}
+              >
+                <Settings className="w-4 h-4" />
+                <span>Ajustes</span>
+              </button>
+            </nav>
+          )}
+
           {/* Quick Metrics & Security Actions */}
           <div className="flex items-center space-x-2 sm:space-x-3">
             {/* Quick Status Pill */}
-            <div className="hidden md:flex items-center space-x-2 text-xs bg-slate-800/80 border border-slate-700/60 rounded-full px-3 py-1.5">
+            <div className="hidden xl:flex items-center space-x-2 text-xs bg-slate-800/80 border border-slate-700/60 rounded-full px-3 py-1.5">
               <span className="flex h-2 w-2 relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
@@ -112,6 +176,19 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 <ExternalLink className="w-3.5 h-3.5" />
                 <span className="hidden md:inline">Abrir en Pestaña</span>
+              </button>
+            )}
+
+            {/* Quick Patient Action on Desktop */}
+            {onOpenNewPatient && (
+              <button
+                id="btn-header-new-patient"
+                type="button"
+                onClick={onOpenNewPatient}
+                className="hidden lg:inline-flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-bold px-3 py-1.5 rounded-lg text-xs border border-slate-700 transition active:scale-95"
+              >
+                <UserPlus className="w-3.5 h-3.5 text-teal-400" />
+                <span>+ Paciente</span>
               </button>
             )}
 

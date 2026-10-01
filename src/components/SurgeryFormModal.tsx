@@ -385,7 +385,7 @@ export const SurgeryFormModal: React.FC<SurgeryFormModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/70 backdrop-blur-sm overflow-y-auto">
-      <div className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-6 flex flex-col max-h-[92vh]">
+      <div className="w-full max-w-2xl lg:max-w-4xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-6 flex flex-col max-h-[92vh]">
         {/* Modal Header */}
         <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between border-b border-slate-800">
           <div>

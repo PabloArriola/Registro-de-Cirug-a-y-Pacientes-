@@ -59,6 +59,17 @@ export const SurgeriesView: React.FC<SurgeriesViewProps> = ({
       .sort((a, b) => new Date(b.fechaCirugia).getTime() - new Date(a.fechaCirugia).getTime());
   }, [surgeries, statusFilter, searchTerm]);
 
+  // Quick stats summary
+  const stats = useMemo(() => {
+    const safe = surgeries || [];
+    return {
+      total: safe.length,
+      programadas: safe.filter(s => s?.estado === 'Programada').length,
+      realizadas: safe.filter(s => s?.estado === 'Realizada').length,
+      pendientesCobro: safe.filter(s => s?.finanzas?.estadoPago === 'Pendiente').length,
+    };
+  }, [surgeries]);
+
   return (
     <div className="space-y-5 pb-24">
       {/* Header and Quick Actions */}
@@ -83,9 +94,49 @@ export const SurgeriesView: React.FC<SurgeriesViewProps> = ({
         </button>
       </div>
 
+      {/* Quick Summary KPI Strip on Tablet / Desktop */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Total Registradas</span>
+            <span className="text-xl font-black text-slate-900">{stats.total}</span>
+          </div>
+          <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold">
+            <Scissors className="w-4 h-4" />
+          </div>
+        </div>
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Programadas</span>
+            <span className="text-xl font-black text-blue-600">{stats.programadas}</span>
+          </div>
+          <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+            <Calendar className="w-4 h-4" />
+          </div>
+        </div>
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Realizadas</span>
+            <span className="text-xl font-black text-emerald-600">{stats.realizadas}</span>
+          </div>
+          <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+            <CheckCircle2 className="w-4 h-4" />
+          </div>
+        </div>
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Por Cobrar</span>
+            <span className="text-xl font-black text-amber-600">{stats.pendientesCobro}</span>
+          </div>
+          <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+            <AlertCircle className="w-4 h-4" />
+          </div>
+        </div>
+      </div>
+
       {/* Search and Filters */}
-      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
-        <div className="relative flex items-center">
+      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-sm md:flex md:items-center md:justify-between md:gap-4 space-y-3 md:space-y-0">
+        <div className="relative flex-1 flex items-center">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             id="input-search-surgeries"
@@ -101,7 +152,7 @@ export const SurgeriesView: React.FC<SurgeriesViewProps> = ({
         </div>
 
         {/* Status Pills */}
-        <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 no-scrollbar text-xs">
+        <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 md:pb-0 no-scrollbar text-xs shrink-0">
           {(['Todas', 'Programada', 'Realizada', 'Post-Op', 'Suspendida'] as const).map(tab => (
             <button
               key={tab}
@@ -119,9 +170,9 @@ export const SurgeriesView: React.FC<SurgeriesViewProps> = ({
         </div>
       </div>
 
-      {/* Surgeries List */}
+      {/* Surgeries List - Responsive 1-col on mobile, 2-col on desktop */}
       {filteredSurgeries.length > 0 ? (
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {filteredSurgeries.map((surgery) => {
             const isCollected = surgery.finanzas.estadoPago === 'Cobrado';
             return (

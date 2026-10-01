@@ -549,10 +549,13 @@ export default function App() {
         onTogglePrivacy={handleTogglePrivacy}
         onLockScreen={() => setIsLocked(true)}
         onOpenNewSurgery={handleOpenNewSurgery}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onOpenNewPatient={handleOpenNewPatient}
       />
 
       {/* Main Viewport Container */}
-      <main className="flex-1 w-full max-w-4xl mx-auto px-3 sm:px-6 pt-5">
+      <main className="flex-1 w-full max-w-7xl 2xl:max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-28 md:pb-12">
         {activeTab === 'cirugias' && (
           <SurgeriesView
             surgeries={surgeries}

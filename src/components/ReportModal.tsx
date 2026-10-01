@@ -45,7 +45,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto print:static print:bg-white print:p-0 print:block">
-      <div className="w-full max-w-3xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-6 flex flex-col max-h-[94vh] print:max-w-none print:shadow-none print:border-none print:my-0 print:max-h-none print:block">
+      <div className="w-full max-w-3xl lg:max-w-4xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-6 flex flex-col max-h-[94vh] print:max-w-none print:shadow-none print:border-none print:my-0 print:max-h-none print:block">
         {/* Top Action Bar (No-Print) */}
         <div className="no-print bg-slate-900 text-white px-5 py-3.5 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800">
           <div className="flex items-center space-x-2">
