@@ -7,7 +7,9 @@ service cloud.firestore {
     }
 
     function isSignedIn() {
-      return request.auth != null && request.auth.token.email_verified == true;
+      return request.auth != null 
+        && request.auth.token.email_verified == true 
+        && request.auth.token.email in ['juanmarri2714@gmail.com', 'arriolapablo.a@gmail.com'];
     }
 
     match /profiles/{userId} {

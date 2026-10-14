@@ -36,7 +36,8 @@ import {
   loadPrivacyMode, 
   savePrivacyMode 
 } from './lib/storage';
-import { Shield, LogIn, AlertTriangle, Laptop, Loader2 } from 'lucide-react';
+import { Shield, LogIn, AlertTriangle, Laptop, Loader2, Lock } from 'lucide-react';
+import { isEmailAuthorized } from './config/authorizedUsers';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -73,10 +74,16 @@ export default function App() {
   // Authentication Listener & Redirect Handling
   useEffect(() => {
     getRedirectResult(auth)
-      .then((res) => {
+      .then(async (res) => {
         if (res?.user) {
-          setUser(res.user);
-          setLoginError(null);
+          if (isEmailAuthorized(res.user.email)) {
+            setUser(res.user);
+            setLoginError(null);
+          } else {
+            await logout();
+            setUser(null);
+            setLoginError(`Acceso denegado: El correo "${res.user.email}" no está en la lista de usuarios autorizados.`);
+          }
         }
       })
       .catch((err) => {
@@ -84,12 +91,23 @@ export default function App() {
         setLoginError(err.message || "Error al completar el acceso con Google");
       });
 
-    const unsub = onAuthStateChanged(auth, (u) => {
-      // Don't overwrite local-doctor guest session if onAuthStateChanged fires with null
-      setUser((current) => {
-        if (current?.uid === 'local-doctor') return current;
-        return u;
-      });
+    const unsub = onAuthStateChanged(auth, async (u) => {
+      if (u) {
+        if (isEmailAuthorized(u.email)) {
+          setUser(u);
+          setLoginError(null);
+        } else {
+          await logout();
+          setUser(null);
+          setLoginError(`Acceso restringido: La cuenta "${u.email}" no está autorizada para acceder a esta aplicación.`);
+        }
+      } else {
+        // Only keep local-doctor in local development mode
+        setUser((current) => {
+          if (import.meta.env.DEV && current?.uid === 'local-doctor') return current;
+          return null;
+        });
+      }
       setLoadingAuth(false);
     });
     return () => unsub();
@@ -161,7 +179,13 @@ export default function App() {
     try {
       const u = await loginWithGoogle();
       if (u) {
-        setUser(u);
+        if (isEmailAuthorized(u.email)) {
+          setUser(u);
+        } else {
+          await logout();
+          setUser(null);
+          setLoginError(`Acceso denegado: El correo "${u.email}" no está en la lista de usuarios autorizados.`);
+        }
       }
     } catch (err: any) {
       console.error("Login failed:", err);
@@ -512,27 +536,33 @@ export default function App() {
               )}
             </button>
 
-            <div className="relative py-2">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-200"></div>
-              </div>
-              <div className="relative flex justify-center text-xs">
-                <span className="bg-white px-3 text-slate-400 font-medium">o ingresa sin cuenta</span>
-              </div>
-            </div>
+            {import.meta.env.DEV && (
+              <>
+                <div className="relative py-2">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-slate-200"></div>
+                  </div>
+                  <div className="relative flex justify-center text-xs">
+                    <span className="bg-white px-3 text-slate-400 font-medium">modo desarrollo local</span>
+                  </div>
+                </div>
 
-            <button
-              id="btn-login-local"
-              type="button"
-              onClick={handleGuestLogin}
-              className="w-full flex items-center justify-center space-x-2 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 rounded-xl py-3 text-xs font-bold transition active:scale-98"
-            >
-              <Laptop className="w-4 h-4 text-teal-600" />
-              <span>Ingresar en Modo Local / Demostración</span>
-            </button>
-            <p className="text-[11px] text-slate-400 leading-tight">
-              Guarda tus pacientes y cirugías en este dispositivo sin requerir autenticación en la nube.
-            </p>
+                <button
+                  id="btn-login-local"
+                  type="button"
+                  onClick={handleGuestLogin}
+                  className="w-full flex items-center justify-center space-x-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl py-3 text-xs font-bold transition active:scale-98"
+                >
+                  <Laptop className="w-4 h-4 text-slate-600" />
+                  <span>Ingresar en Modo Local (Solo Pruebas Dev)</span>
+                </button>
+              </>
+            )}
+
+            <div className="pt-2 flex items-center justify-center space-x-1.5 text-[11px] text-slate-400">
+              <Lock className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+              <span>Acceso médico exclusivo para cuentas autorizadas</span>
+            </div>
           </div>
         </div>
       </div>
